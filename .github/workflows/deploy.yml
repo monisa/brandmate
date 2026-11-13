@@ -112,15 +112,44 @@ jobs:
             echo "::error::SSH to $SSH_USER@host:$SSH_PORT failed: $(tail -3 /tmp/ssherr | tr '\n' ' ' | sed "s/$SSH_HOST/host/g")"
             exit 1
           fi
-          # Accept common variations: "domains/x.com/public_html", "~/domains/x.com", a trailing slash.
-          path=$(printf '%s' "$DEPLOY_PATH" | sed -e 's#^~/##' -e 's#/*$##' -e 's#/public_html$##')
-          if [ "$path" = "public_html" ]; then path="."; fi
-          echo "DEPLOY_PATH=$path" >> "$GITHUB_ENV"
-          ssh hostinger "test -d '$path/public_html'" || {
-            found=$(ssh hostinger 'find ~ -maxdepth 4 -type d -name public_html 2>/dev/null | sed "s#^$HOME/##" | head -10 | tr "\n" " "')
-            echo "::error::No public_html inside HOSTINGER_DEPLOY_PATH. public_html folders on the server (relative to the SSH home): ${found:-none found}. Set HOSTINGER_DEPLOY_PATH to the part before /public_html, e.g. domains/yourdomain.com"
+
+      # Finds the live install instead of assuming a layout:
+      #   WEB_DIR = the folder the site is served from (its index.php loads brandmate-app)
+      #   APP_DIR = the brandmate-app that index.php loads, checked in the same order as index.php
+      - name: Locate the live install
+        run: |
+          path=$(printf '%s' "$DEPLOY_PATH" | sed -e 's#^~/##' -e 's#/*$##')
+          ssh hostinger bash -s -- "$path" > /tmp/locate <<'REMOTE'
+          set -e
+          cd ~
+          path="$1"
+          web=""
+          for c in "$path" "$path/public_html"; do
+            if [ -f "$c/index.php" ] && grep -q brandmate-app "$c/index.php"; then web="$c"; break; fi
+          done
+          if [ -z "$web" ]; then
+            # Look for the BrandMate web root anywhere under domains/ (main domain or subdomain folder).
+            web=$(grep -l brandmate-app domains/*/public_html/index.php domains/*/public_html/*/index.php 2>/dev/null \
+              | xargs -r -n1 dirname | head -20 | tr '\n' ' ')
+            set -- $web
+            if [ "$#" -ne 1 ]; then echo "ERR candidates: ${web:-none}"; exit 0; fi
+            web="$1"
+          fi
+          web=$(cd "$web" && pwd)
+          app=""
+          for c in "$web/../brandmate-app" "$web/../../brandmate-app"; do
+            if [ -f "$c/bootstrap/app.php" ]; then app=$(cd "$c" && pwd); break; fi
+          done
+          if [ -z "$app" ]; then echo "ERR no brandmate-app with bootstrap/app.php next to $web"; exit 0; fi
+          echo "WEB_DIR=$web"
+          echo "APP_DIR=$app"
+          REMOTE
+          if grep -q '^ERR' /tmp/locate; then
+            echo "::error::Could not find the live BrandMate install. $(sed 's/^ERR //' /tmp/locate | sed "s#/home/$SSH_USER/##g"). Set HOSTINGER_DEPLOY_PATH to the folder that holds the site's index.php, e.g. domains/yourdomain.com/public_html/brandmate"
             exit 1
-          }
+          fi
+          cat /tmp/locate >> "$GITHUB_ENV"
+          sed "s#/home/$SSH_USER/#~/#" /tmp/locate
 
       # Nothing on the server is deleted: .env, storage, vendor and older
       # asset files stay. Old hashed asset files are harmless.
@@ -128,12 +157,12 @@ jobs:
         run: |
           printf '%s\n' '.env' '.env.*' '/vendor/' '/node_modules/' '/storage/' '/tests/' \
             '/bootstrap/cache/*.php' '*.sqlite' '*.log' > /tmp/rsync-exclude
-          rsync -az --exclude-from=/tmp/rsync-exclude backend/ "hostinger:$DEPLOY_PATH/brandmate-app/"
+          rsync -az --exclude-from=/tmp/rsync-exclude backend/ "hostinger:$APP_DIR/"
 
       - name: Install dependencies and migrate
         run: |
           ssh hostinger "set -e
-            cd '$DEPLOY_PATH/brandmate-app'
+            cd '$APP_DIR'
             mkdir -p storage/app storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
             COMPOSER=\$(command -v composer2 || command -v composer)
             \$COMPOSER install --no-dev --optimize-autoloader --no-interaction
@@ -144,4 +173,4 @@ jobs:
 
       # The web root goes last, so the new pages only appear once the API is ready.
       - name: Upload the website
-        run: rsync -az out/public_html/ "hostinger:$DEPLOY_PATH/public_html/"
+        run: rsync -az out/public_html/ "hostinger:$WEB_DIR/"
