@@ -112,8 +112,13 @@ jobs:
             echo "::error::SSH to $SSH_USER@host:$SSH_PORT failed: $(tail -3 /tmp/ssherr | tr '\n' ' ' | sed "s/$SSH_HOST/host/g")"
             exit 1
           fi
-          ssh hostinger "test -d '$DEPLOY_PATH/public_html'" || {
-            echo "::error::Folder '$DEPLOY_PATH/public_html' was not found in the SSH home. Check HOSTINGER_DEPLOY_PATH (e.g. domains/yourdomain.com)."
+          # Accept common variations: "domains/x.com/public_html", "~/domains/x.com", a trailing slash.
+          path=$(printf '%s' "$DEPLOY_PATH" | sed -e 's#^~/##' -e 's#/*$##' -e 's#/public_html$##')
+          if [ "$path" = "public_html" ]; then path="."; fi
+          echo "DEPLOY_PATH=$path" >> "$GITHUB_ENV"
+          ssh hostinger "test -d '$path/public_html'" || {
+            found=$(ssh hostinger 'find ~ -maxdepth 4 -type d -name public_html 2>/dev/null | sed "s#^$HOME/##" | head -10 | tr "\n" " "')
+            echo "::error::No public_html inside HOSTINGER_DEPLOY_PATH. public_html folders on the server (relative to the SSH home): ${found:-none found}. Set HOSTINGER_DEPLOY_PATH to the part before /public_html, e.g. domains/yourdomain.com"
             exit 1
           }
 
