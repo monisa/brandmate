@@ -17,15 +17,18 @@ class DatabaseInfluencerSearch implements InfluencerSearch
             // Creators choose when they are visible, and the platform team must have approved them.
             ->where('influencers.status', Influencer::LISTED)
             ->where('influencers.approval_status', ApprovalStatus::APPROVED)
-            ->with('influencer');
+            ->with('influencer.user');
 
         if (filled($filters['q'] ?? null)) {
             // Escape LIKE wildcards so "100%" searches for the literal text.
             $term = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], trim($filters['q'])).'%';
 
+            // A channel name that is hidden from this viewer must not be findable by typing it either.
+            $matchUsername = $filters['match_username'] ?? true;
+
             $query->where(fn ($w) => $w
                 ->where('influencers.name', 'like', $term)
-                ->orWhere('social_profiles.username', 'like', $term)
+                ->when($matchUsername, fn ($inner) => $inner->orWhere('social_profiles.username', 'like', $term))
                 ->orWhere('influencers.bio', 'like', $term));
         }
 

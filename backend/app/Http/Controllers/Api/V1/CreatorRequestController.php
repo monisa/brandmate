@@ -31,7 +31,9 @@ class CreatorRequestController extends Controller
             ->latest('id')
             ->paginate($this->perPage($request));
 
-        return JsonResource::collection($requests->through(fn (CollaborationRequest $r) => $r->toApi('creator')))
+        $unlocked = Entitlements::allowsRequest($request);
+
+        return JsonResource::collection($requests->through(fn (CollaborationRequest $r) => $r->toApi('creator', $unlocked)))
             ->additional(['pending_count' => $this->inbox($creatorId)->where('status', CollaborationRequest::PENDING)->count()]);
     }
 
@@ -60,7 +62,7 @@ class CreatorRequestController extends Controller
             'creator' => $request->user()->name, 'title' => $found->title, 'decision' => $data['decision'],
         ], '/requests'));
 
-        return response()->json(['data' => $found->toApi('creator')]);
+        return response()->json(['data' => $found->toApi('creator', Entitlements::allowsRequest($request))]);
     }
 
     /** Requests are tenant-scoped on the brand side; the creator reads across companies by their own id. */

@@ -7,6 +7,7 @@ use App\Domain\Companies\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CompanyResource;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CompanyController extends Controller
 {
@@ -22,6 +23,10 @@ class CompanyController extends Controller
             'website' => ['nullable', 'url', 'max:255'],
             'country' => ['nullable', 'string', 'size:2'],
             'timezone' => ['required', 'timezone'],
+            // Contact details that creators see once they subscribe.
+            'phone' => ['nullable', 'string', 'max:25', 'regex:/^[0-9+()\-\s]{6,25}$/'],
+            'channel_name' => ['nullable', 'string', 'max:120'],
+            'industry' => ['nullable', Rule::in(config('platform.industries'))],
         ]);
 
         $company = $tenant->company();

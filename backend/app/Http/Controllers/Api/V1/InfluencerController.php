@@ -6,6 +6,7 @@ use App\Domain\Influencers\Models\Influencer;
 use App\Domain\Influencers\Models\ProfileView;
 use App\Domain\Influencers\Models\SocialProfile;
 use App\Domain\Search\InfluencerSearch;
+use App\Domain\Subscriptions\Entitlements;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\InfluencerResource;
 use Illuminate\Http\JsonResponse;
@@ -34,7 +35,8 @@ class InfluencerController extends Controller
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
 
-        // Phase 3 hooks the plan's search limit in here (usage_records).
+        // Without a subscription the channel name is hidden, so it is not searchable either.
+        $filters['match_username'] = Entitlements::allowsRequest($request);
 
         return InfluencerResource::collection($search->search($filters, $this->perPage($request)));
     }
@@ -51,9 +53,17 @@ class InfluencerController extends Controller
 
     public function show(Request $request, int $id): InfluencerResource
     {
-        $profile = SocialProfile::with(['influencer.profiles', 'influencer.packages'])->findOrFail($id);
+        $profile = SocialProfile::with(['influencer.profiles', 'influencer.packages', 'influencer.user'])->findOrFail($id);
 
         abort_unless($profile->influencer->isVisibleToBrands(), 404); // hidden by the creator or not approved yet
+
+        // Opening a full profile is part of the subscription; the cards stay browsable with details hidden.
+        if (! Entitlements::allowsRequest($request)) {
+            abort(response()->json([
+                'message' => 'Subscribe to open full profiles and see contact details.',
+                'code' => 'subscription_required',
+            ], 403));
+        }
 
         // The creator sees how many brands looked at their profile.
         ProfileView::record($profile->influencer, (int) $request->user()->membership?->company_id, $request->user()->id);
@@ -71,7 +81,7 @@ class InfluencerController extends Controller
         ]);
 
         $ids = array_map('intval', $data['ids']);
-        $profiles = SocialProfile::with('influencer')->whereIn('id', $ids)
+        $profiles = SocialProfile::with('influencer.user')->whereIn('id', $ids)
             ->whereHas('influencer', fn ($q) => $q->visibleToBrands())
             ->get()
             ->sortBy(fn ($p) => array_search($p->id, $ids, true)) // keep the order that was asked for

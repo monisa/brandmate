@@ -30,7 +30,9 @@ class RequestController extends Controller
             ->latest('id')
             ->paginate($this->perPage($request));
 
-        return JsonResource::collection($requests->through(fn (CollaborationRequest $r) => $r->toApi('brand')));
+        $unlocked = Entitlements::allowsRequest($request);
+
+        return JsonResource::collection($requests->through(fn (CollaborationRequest $r) => $r->toApi('brand', $unlocked)));
     }
 
     public function store(Request $request, TenantContext $tenant, AuditLogger $audit): JsonResponse
@@ -73,11 +75,13 @@ class RequestController extends Controller
             'company' => $tenant->company()?->name, 'title' => $created->title,
         ], '/creator/requests'));
 
-        return response()->json(['data' => $this->fresh($created)->toApi('brand')], 201);
+        $unlocked = Entitlements::allowsRequest($request);
+
+        return response()->json(['data' => $this->fresh($created)->toApi('brand', $unlocked)], 201);
     }
 
     /** Withdraws a request the creator has not answered yet. */
-    public function withdraw(int $id, AuditLogger $audit): JsonResponse
+    public function withdraw(Request $request, int $id, AuditLogger $audit): JsonResponse
     {
         $found = CollaborationRequest::findOrFail($id); // tenant-scoped: other companies' requests are a 404
 
@@ -92,7 +96,9 @@ class RequestController extends Controller
             'company' => app(TenantContext::class)->company()?->name, 'title' => $found->title,
         ], '/creator/requests'));
 
-        return response()->json(['data' => $this->fresh($found)->toApi('brand')]);
+        $unlocked = Entitlements::allowsRequest($request);
+
+        return response()->json(['data' => $this->fresh($found)->toApi('brand', $unlocked)]);
     }
 
     private function fresh(CollaborationRequest $request): CollaborationRequest

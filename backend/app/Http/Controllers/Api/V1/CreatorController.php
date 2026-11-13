@@ -42,14 +42,24 @@ class CreatorController extends Controller
             'state' => ['nullable', 'string', 'max:80'],
             'city' => ['nullable', 'string', 'max:80'],
             'language' => ['nullable', 'string', 'max:60'],
+            // Shown to brands once they subscribe.
+            'phone' => ['nullable', 'string', 'max:25', 'regex:/^[0-9+()\-\s]{6,25}$/'],
         ]);
 
         if (isset($data['country'])) {
             $data['country'] = strtoupper($data['country']);
         }
 
+        // The phone number belongs to the login, not to the public profile.
+        $phone = array_key_exists('phone', $data) ? $data['phone'] : null;
+        $hasPhone = array_key_exists('phone', $data);
+        unset($data['phone']);
+
         $creator = $this->creator($request);
         $creator->update($data);
+        if ($hasPhone) {
+            $request->user()->forceFill(['phone' => $phone])->save();
+        }
         $this->hideIfIncomplete($creator);
 
         return $this->respond($creator);
@@ -211,6 +221,8 @@ class CreatorController extends Controller
             'state' => $creator->state,
             'city' => $creator->city,
             'language' => $creator->language,
+            'phone' => $creator->user?->phone,
+            'email' => $creator->user?->email,
             'listed' => $creator->isListed(),
             // Brands see the profile only when it is listed AND approved by the platform team.
             'approval_status' => $creator->approval_status,

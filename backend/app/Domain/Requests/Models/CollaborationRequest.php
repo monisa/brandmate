@@ -5,6 +5,7 @@ namespace App\Domain\Requests\Models;
 use App\Domain\Companies\BelongsToCompany;
 use App\Domain\Creators\Models\CreatorPackage;
 use App\Domain\Influencers\Models\Influencer;
+use App\Domain\Subscriptions\Entitlements;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -58,14 +59,15 @@ class CollaborationRequest extends Model
     }
 
     /**
-     * The request as the API shows it. Contact e-mails are shared only once the
-     * creator has accepted, and only with the other party.
+     * The request as the API shows it. Contact e-mails are shared only once the creator has
+     * accepted, only with the other party, and only to a subscriber. A locked viewer sees the
+     * creator's channel name masked.
      *
      * @return array<string, mixed>
      */
-    public function toApi(string $viewer): array
+    public function toApi(string $viewer, bool $unlocked = true): array
     {
-        $accepted = $this->status === self::ACCEPTED;
+        $accepted = $this->status === self::ACCEPTED && $unlocked;
 
         $data = [
             'id' => $this->id,
@@ -102,7 +104,7 @@ class CollaborationRequest extends Model
             'id' => $creator?->id,
             'profile_id' => $profile?->id,
             'name' => $creator?->name,
-            'username' => $profile?->username,
+            'username' => Entitlements::reveal($profile?->username, $unlocked),
             'platform' => $profile?->platform,
             'avatar_url' => $profile?->avatar_url,
             'email' => $accepted ? $creator?->user?->email : null,

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Admin\AdminController;
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BrandDirectoryController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CreatorController;
 use App\Http\Controllers\Api\V1\CreatorDashboardController;
@@ -10,9 +11,11 @@ use App\Http\Controllers\Api\V1\CreatorRequestController;
 use App\Http\Controllers\Api\V1\InfluencerController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\RazorpayWebhookController;
 use App\Http\Controllers\Api\V1\RequestController;
 use App\Http\Controllers\Api\V1\ShortlistController;
 use App\Http\Controllers\Api\V1\SocialAuthController;
+use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\TeamController;
 use Illuminate\Support\Facades\Route;
 
@@ -25,6 +28,9 @@ use Illuminate\Support\Facades\Route;
 |   tenant        -> which company; turns on tenant scoping
 |   permission:x  -> what they may do
 */
+
+// ---- Razorpay webhook: believed only when signed with the webhook secret ----
+Route::post('webhooks/razorpay', [RazorpayWebhookController::class, 'handle']);
 
 // ---- Public ----
 Route::prefix('auth')->middleware('throttle:auth')->group(function () {
@@ -60,6 +66,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('profile', [AuthController::class, 'updateProfile']);
         Route::get('sessions', [AuthController::class, 'sessions']);
         Route::delete('sessions/{id}', [AuthController::class, 'revokeSession'])->whereNumber('id');
+    });
+
+    // ---- Subscription: Rs 999 + GST a month unlocks contact details, full profiles and chat ----
+    Route::middleware('verified')->prefix('subscription')->group(function () {
+        Route::get('/', [SubscriptionController::class, 'show']);
+        Route::post('checkout', [SubscriptionController::class, 'checkout'])->middleware('throttle:10,1');
+        Route::post('confirm', [SubscriptionController::class, 'confirm'])->middleware('throttle:10,1');
+        Route::post('cancel', [SubscriptionController::class, 'cancel']);
     });
 
     // ---- In-app notifications (any signed-in, verified person) ----
@@ -123,6 +137,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ---- Creator workspace (creators manage only their own profile) ----
     Route::prefix('creator')->middleware(['verified', 'creator'])->group(function () {
+        // The brands a creator can browse, like brands browse creators
+        Route::get('brands', [BrandDirectoryController::class, 'index']);
+        Route::get('brands/filters', [BrandDirectoryController::class, 'filters']);
+        Route::get('brands/{id}', [BrandDirectoryController::class, 'show'])->whereNumber('id');
+
         Route::get('dashboard', [CreatorDashboardController::class, 'show']);
         Route::get('profile', [CreatorController::class, 'show']);
         Route::put('profile', [CreatorController::class, 'update']);

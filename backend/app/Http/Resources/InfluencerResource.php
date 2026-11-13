@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Domain\Subscriptions\Entitlements;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,14 +17,21 @@ class InfluencerResource extends JsonResource
     public function toArray(Request $request): array
     {
         $creator = $this->influencer;
+        // Phone numbers, e-mail addresses and channel names are shown only to subscribers.
+        $unlocked = Entitlements::allowsRequest($request);
 
         return [
             'id' => $this->id,
             'creator_id' => $this->influencer_id,
             'name' => $creator->name,
-            'username' => $this->username,
+            'locked' => ! $unlocked,
+            'username' => Entitlements::reveal($this->username, $unlocked),
             'platform' => $this->platform,
-            'profile_url' => $this->profile_url,
+            'profile_url' => $unlocked ? $this->profile_url : null,
+            'contact' => [
+                'email' => Entitlements::reveal($creator->user?->email, $unlocked),
+                'phone' => Entitlements::reveal($creator->user?->phone, $unlocked),
+            ],
             'avatar_url' => $this->avatar_url,
             'bio' => $creator->bio,
             'category' => $creator->category,
@@ -49,7 +57,7 @@ class InfluencerResource extends JsonResource
                 ->values()),
             'other_platforms' => $this->when($creator->relationLoaded('profiles'), fn () => $creator->profiles
                 ->where('id', '!=', $this->id)
-                ->map(fn ($p) => ['id' => $p->id, 'platform' => $p->platform, 'username' => $p->username, 'followers' => $p->followers])
+                ->map(fn ($p) => ['id' => $p->id, 'platform' => $p->platform, 'username' => Entitlements::reveal($p->username, $unlocked), 'followers' => $p->followers])
                 ->values()),
         ];
     }

@@ -15,6 +15,12 @@ return [
         'Lifestyle', 'Music', 'Parenting', 'Technology', 'Travel',
     ],
 
+    // Industries a brand can choose from.
+    'industries' => [
+        'Beauty & personal care', 'Education', 'Entertainment', 'Fashion & apparel', 'Finance', 'Food & beverage',
+        'Health & fitness', 'Home & lifestyle', 'Retail & e-commerce', 'Technology', 'Travel & hospitality', 'Other',
+    ],
+
     // Currency for creator packages. One currency keeps pricing and payouts simple for now.
     'currency' => env('PLATFORM_CURRENCY', 'INR'),
 

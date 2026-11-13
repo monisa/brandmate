@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 
 class Company extends Model
 {
-    protected $fillable = ['name', 'slug', 'website', 'country', 'timezone', 'status'];
+    protected $fillable = ['name', 'slug', 'website', 'country', 'timezone', 'status', 'phone', 'channel_name', 'industry'];
 
     protected function casts(): array
     {
