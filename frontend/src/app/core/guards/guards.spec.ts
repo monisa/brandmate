@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, Router, RouterStateSnapshot, UrlTree, provideRouter } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { fakeUser } from '../testing';
-import { authGuard, brandHomeGuard, companyGuard, creatorGuard, permissionGuard, superAdminGuard, verifiedGuard } from './guards';
+import { approvedCompanyGuard, authGuard, brandHomeGuard, companyGuard, creatorGuard, permissionGuard, superAdminGuard, verifiedGuard } from './guards';
 
 describe('route guards', () => {
   let auth: AuthService;
@@ -51,6 +51,19 @@ describe('route guards', () => {
     auth.setUser(fakeUser());
     expect(urlOf(run(creatorGuard))).toBe('/dashboard');
     expect(run(brandHomeGuard)).toBe(true);
+  });
+
+  it('holds brands back from search, shortlists and requests until the company is approved', () => {
+    const company = { id: 10, name: 'Bright Labs', slug: 'bright-labs', review_note: null };
+
+    auth.setUser(fakeUser({ company: { ...company, approval_status: 'pending' } }));
+    expect(urlOf(run(approvedCompanyGuard))).toBe('/dashboard');
+    auth.setUser(fakeUser({ company: { ...company, approval_status: 'rejected' } }));
+    expect(urlOf(run(approvedCompanyGuard))).toBe('/dashboard');
+
+    auth.setUser(fakeUser({ company: { ...company, approval_status: 'approved' } }));
+    expect(run(approvedCompanyGuard)).toBe(true);
+    expect(auth.companyApproved()).toBe(true);
   });
 
   it('checks a named permission', () => {

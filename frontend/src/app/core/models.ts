@@ -1,3 +1,6 @@
+/** Where a brand or creator stands with the platform team. */
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 export interface RoleRef {
   id: number;
   name: string;
@@ -16,7 +19,7 @@ export interface User {
   email_verified: boolean;
   is_super_admin: boolean;
   account_type: 'brand' | 'creator';
-  company: { id: number; name: string; slug: string } | null;
+  company: { id: number; name: string; slug: string; approval_status: ApprovalStatus; review_note: string | null } | null;
   role: RoleRef | null;
   /** For showing or hiding UI only. The API enforces permissions itself. */
   permissions: string[];
@@ -60,6 +63,11 @@ export interface Company {
   country: string | null;
   timezone: string;
   status: 'active' | 'suspended';
+  approval_status: ApprovalStatus;
+  review_note: string | null;
+  reviewed_at: string | null;
+  /** The first member, shown while reviewing a new company. */
+  owner?: { name: string; email: string } | null;
   members_count?: number;
   created_at: string;
 }
@@ -78,6 +86,23 @@ export interface AdminOverview {
   suspended_companies: number;
   users: number;
   unverified_users: number;
+  pending_companies: number;
+  pending_creators: number;
+}
+
+/** A creator who signed up themselves, as the platform team sees them. */
+export interface AdminCreator {
+  id: number;
+  name: string;
+  email: string | null;
+  category: string | null;
+  country: string | null;
+  listed: boolean;
+  approval_status: ApprovalStatus;
+  review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string | null;
+  accounts: { platform: Platform; username: string; followers: number | null }[];
 }
 
 export interface Item<T> {
@@ -193,6 +218,9 @@ export interface CreatorProfile {
   city: string | null;
   language: string | null;
   listed: boolean;
+  approval_status: ApprovalStatus;
+  review_note: string | null;
+  pending_requests: number;
   missing_for_listing: string[];
   category_options: string[];
   currency: string;
@@ -202,3 +230,98 @@ export interface CreatorProfile {
 
 export type CreatorAccountInput = Pick<CreatorAccount, 'platform' | 'username' | 'profile_url'> & { followers: number };
 export type CreatorPackageInput = Pick<CreatorPackage, 'platform' | 'title' | 'description' | 'price' | 'delivery_days' | 'is_active'>;
+
+export type RequestStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn';
+
+interface RequestBase {
+  id: number;
+  title: string;
+  message: string;
+  /** Whole currency units. Null when the brand did not name a budget. */
+  budget: number | null;
+  currency: string;
+  due_date: string | null;
+  status: RequestStatus;
+  creator_response: string | null;
+  responded_at: string | null;
+  created_at: string;
+  package: { id: number; title: string; price: number; currency: string } | null;
+}
+
+/** A request as the brand that sent it sees it. */
+export interface BrandRequest extends RequestBase {
+  creator: {
+    id: number;
+    profile_id: number | null;
+    name: string;
+    username: string | null;
+    platform: Platform | null;
+    avatar_url: string | null;
+    /** Only after the creator accepted. */
+    email: string | null;
+  };
+  requested_by: string | null;
+}
+
+/** A request as the creator who received it sees it. */
+export interface CreatorRequest extends RequestBase {
+  brand: {
+    company: string | null;
+    requested_by: string | null;
+    /** Only after the creator accepted. */
+    email: string | null;
+  };
+}
+
+export interface RequestInput {
+  creator_id: number;
+  package_id: number | null;
+  title: string;
+  message: string;
+  budget: number | null;
+  due_date: string | null;
+}
+
+export type DashboardAction =
+  | { type: 'answer_requests'; count: number }
+  | { type: 'awaiting_approval' }
+  | { type: 'approval_rejected'; note: string | null }
+  | { type: 'complete_profile'; items: string[] }
+  | { type: 'list_profile' }
+  | { type: 'add_package' }
+  | { type: 'add_bio' };
+
+/** What a creator sees first: profile visits, requests and what to do next. */
+export interface CreatorDashboard {
+  approval_status: ApprovalStatus;
+  review_note: string | null;
+  listed: boolean;
+  visible_to_brands: boolean;
+  views: {
+    last_7_days: number;
+    last_30_days: number;
+    brands_30_days: number;
+    /** One entry per day for the last 14 days, oldest first. */
+    series: { date: string; count: number }[];
+  };
+  recent_visitors: { company: string | null; at: string }[];
+  requests: { pending: number; accepted: number; declined: number };
+  actions: DashboardAction[];
+}
+
+/** The API sends a kind and a few values; the app words it so it can be translated. */
+export interface AppNotification {
+  id: string;
+  kind: string;
+  meta: Record<string, string | number | null>;
+  link: string | null;
+  read: boolean;
+  created_at: string;
+}
+
+export interface BulkDeleteResult {
+  users?: number;
+  companies?: number;
+  creators?: number;
+  skipped: number;
+}

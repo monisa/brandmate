@@ -31,6 +31,15 @@ export const companyGuard: CanActivateFn = () => {
   return inject(Router).createUrlTree([user?.account_type === 'creator' ? '/creator' : '/admin']);
 };
 
+/**
+ * Search, shortlists and requests open once the platform team has approved the company.
+ * Until then the dashboard explains the wait. (The API enforces this too.)
+ */
+export const approvedCompanyGuard: CanActivateFn = () => {
+  const company = inject(AuthService).user()?.company;
+  return company?.approval_status === 'approved' ? true : inject(Router).createUrlTree(['/dashboard']);
+};
+
 /** Creator accounts only. */
 export const creatorGuard: CanActivateFn = () => {
   return inject(AuthService).user()?.account_type === 'creator' ? true : inject(Router).createUrlTree(['/dashboard']);

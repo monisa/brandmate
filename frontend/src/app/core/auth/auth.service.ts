@@ -105,6 +105,9 @@ export class AuthService {
     this.currentUser.set(user);
   }
 
+  /** True for brand users whose company the platform team has approved. */
+  readonly companyApproved = computed(() => this.currentUser()?.company?.approval_status === 'approved');
+
   can(permission: string): boolean {
     const user = this.currentUser();
     return !!user && (user.is_super_admin || user.permissions.includes(permission));

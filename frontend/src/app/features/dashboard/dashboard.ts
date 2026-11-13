@@ -5,11 +5,12 @@ import { Influencer } from '../../core/models';
 import { Api } from '../../core/services/api';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { InfluencerAvatar } from '../../shared/components/influencer-avatar';
+import { NotificationsCard } from '../../shared/components/notifications-card';
 import { MetricPipe } from '../../shared/pipes/metric.pipe';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [TPipe, RouterLink, InfluencerAvatar, MetricPipe],
+  imports: [TPipe, RouterLink, InfluencerAvatar, MetricPipe, NotificationsCard],
   template: `
     <header class="hero">
       <div>
@@ -17,13 +18,30 @@ import { MetricPipe } from '../../shared/pipes/metric.pipe';
         <h1>{{ 'Hello, {name}' | t: { name: firstName } }}</h1>
         <p class="hero__lead">{{ 'Discover creators, compare them side by side and keep your favourites in shortlists.' | t }}</p>
       </div>
-      @if (user()?.company && auth.can('influencer.search')) {
+      @if (user()?.company && auth.can('influencer.search') && auth.companyApproved()) {
         <a class="btn btn--light" routerLink="/influencers">{{ 'Find influencers' | t }}</a>
       }
     </header>
 
-    @if (user()?.company) {
-      @if (auth.can('influencer.search') && creators().length) {
+    @if (user()?.company; as company) {
+      @if (company.approval_status === 'pending') {
+        <section class="card approval approval--pending" role="status">
+          <h2>{{ 'Your company is waiting for approval' | t }}</h2>
+          <p>{{ 'The BrandMate team reviews every new brand before it can search creators, build shortlists and send requests. You can set up your team and company details in the meantime. Everything unlocks as soon as you are approved.' | t }}</p>
+        </section>
+      } @else if (company.approval_status === 'rejected') {
+        <section class="card approval approval--rejected" role="alert">
+          <h2>{{ 'Your company was not approved' | t }}</h2>
+          @if (company.review_note) {
+            <p>{{ company.review_note }}</p>
+          }
+          <p class="muted">{{ 'If you think this is a mistake, contact the BrandMate team.' | t }}</p>
+        </section>
+      }
+
+      <app-notifications-card />
+
+      @if (auth.can('influencer.search') && auth.companyApproved() && creators().length) {
         <section class="card stories-card">
           <div class="card__head">
             <h2>{{ 'Popular creators' | t }}</h2>
@@ -100,7 +118,7 @@ export class Dashboard implements OnInit {
         next: (res) => this.memberCount.set(res.meta.total),
         error: () => this.memberCount.set(null),
       });
-      if (this.auth.can('influencer.search')) {
+      if (this.auth.can('influencer.search') && this.auth.companyApproved()) {
         // Most-followed creators, shown like a stories row. Purely a shortcut: no ranking claim.
         this.api.influencers({}).subscribe({
           next: (page) => this.creators.set(page.data.slice(0, 10)),

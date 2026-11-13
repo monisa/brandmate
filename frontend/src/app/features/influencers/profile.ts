@@ -5,6 +5,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { Influencer } from '../../core/models';
 import { Api } from '../../core/services/api';
 import { MetricPipe } from '../../shared/pipes/metric.pipe';
+import { RequestForm } from '../requests/request-form';
 import { ShortlistPicker } from '../shortlists/shortlist-picker';
 import { CompareSelection } from './compare-selection';
 import { PLATFORM_LABELS, coverOf, locationOf, sourceLabel } from './labels';
@@ -14,7 +15,7 @@ import { TPipe } from '../../core/i18n/t.pipe';
 
 @Component({
   selector: 'app-influencer-profile',
-  imports: [TPipe, RouterLink, CurrencyPipe, DatePipe, MetricPipe, ShortlistPicker, InfluencerAvatar, PlatformIcon],
+  imports: [TPipe, RouterLink, CurrencyPipe, DatePipe, MetricPipe, ShortlistPicker, InfluencerAvatar, PlatformIcon, RequestForm],
   template: `
     <p class="crumbs"><a routerLink="/influencers">{{ 'Find influencers' | t }}</a> / {{ influencer()?.name ?? ('Profile' | t) }}</p>
 
@@ -68,6 +69,9 @@ import { TPipe } from '../../core/i18n/t.pipe';
           </div>
         </div>
         <div class="profile-head__actions">
+          @if (canRequest) {
+            <button class="btn btn--primary" type="button" (click)="toRequestForm()">{{ 'Send a request' | t }}</button>
+          }
           <button class="btn" type="button" (click)="compare.toggle(i.id)" [disabled]="compare.full() && !compare.has(i.id)"
                   [attr.aria-pressed]="compare.has(i.id)">
             {{ (compare.has(i.id) ? 'Remove from comparison' : 'Add to comparison') | t }}
@@ -167,6 +171,10 @@ import { TPipe } from '../../core/i18n/t.pipe';
         </section>
       }
 
+      @if (canRequest) {
+        <app-request-form [creatorId]="i.creator_id" [creatorName]="i.name" [packages]="i.packages ?? []" />
+      }
+
       @if (canShortlist) {
         <section class="card">
           <h2>{{ 'Save to a shortlist' | t }}</h2>
@@ -184,6 +192,11 @@ export class InfluencerProfile {
   readonly id = input.required<string>();
 
   protected readonly canShortlist = inject(AuthService).can('shortlist.manage');
+  protected readonly canRequest = inject(AuthService).can('request.manage');
+
+  protected toRequestForm(): void {
+    document.getElementById('request')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   protected readonly platformLabels = PLATFORM_LABELS;
   protected readonly cover = coverOf;
   protected readonly location = locationOf;

@@ -686,3 +686,91 @@ tr.is-selected td { background: #fff5f8; }
 .chips__sep { align-self: stretch; width: 1px; background: var(--line); margin: 0.25rem 0.125rem; }
 .chip--registered svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .chip--registered.is-on { background: var(--action); border-color: var(--action); }
+
+// ---------- Approvals, requests, creator dashboard, bulk delete ----------
+.badge--bad { background: var(--danger-bg); color: var(--danger); }
+.tabs__tab {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 0.875rem; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px;
+  background: none; color: var(--ink-soft); font: 600 1rem var(--font-body); cursor: pointer; white-space: nowrap;
+}
+.tabs__tab:hover { color: var(--ink); }
+.tabs__tab.is-active { color: var(--ink); border-bottom-color: var(--action); }
+
+// Approval notices on the dashboards
+.approval { border-left: 4px solid var(--warn); }
+.approval h2 { margin-bottom: 0.375rem; }
+.approval p { margin-bottom: 0.5rem; }
+.approval--rejected { border-left-color: var(--danger); }
+
+// Tick boxes in tables, and the bar that appears when rows are ticked
+th.check, td.check { width: 2.25rem; padding-right: 0; }
+td.check input, th.check input { display: block; }
+tr.is-selected td { background: #fff5f8; }
+.bulkbar {
+  position: sticky; top: 0.5rem; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;
+  margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: var(--radius); background: var(--ink); color: #fff; box-shadow: var(--shadow);
+}
+.bulkbar .btn--quiet { color: #dfe3f1; }
+.bulkbar :focus-visible { outline-color: #fff; }
+.bulkbar__confirm { display: grid; gap: 0.5rem; width: 100%; }
+.bulkbar__confirm p { margin: 0; max-width: none; }
+.bulkbar__row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.bulkbar__row input { width: 14rem; max-width: 100%; background: #fff; }
+.reject { display: inline-flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: flex-end; }
+.reject input { width: 15rem; max-width: 100%; }
+
+// Request cards (brand list and creator inbox)
+.requests { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
+.request { margin: 0; }
+.request__head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.request__who { flex: 1 1 14rem; min-width: 0; }
+.request__who h2 { margin: 0; font-size: 1.125rem; }
+.request__who p { margin: 0.125rem 0 0; }
+.request__message { white-space: pre-line; margin: 0 0 1rem; max-width: 70ch; }
+.request__facts { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; margin: 0 0 1rem; }
+.request__facts div { display: grid; gap: 0.125rem; }
+.request__facts dt { font-size: 0.8125rem; color: var(--ink-soft); }
+.request__facts dd { margin: 0; font-weight: 600; }
+.request__reply { margin: 0 0 1rem; padding: 0.75rem 1rem; border-left: 4px solid var(--line); background: var(--paper); border-radius: 0 var(--radius) var(--radius) 0; white-space: pre-line; }
+.request__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.request .alert { margin: 0 0 1rem; }
+.request-form textarea { min-height: 6rem; }
+.request-form__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; }
+
+// Creator dashboard
+.hero--creator { background: radial-gradient(80% 120% at 100% 0%, rgba(255, 255, 255, 0.22), transparent 55%), linear-gradient(135deg, #7c3aed 0%, #c8245c 70%, #ff5f8f 100%); }
+a.fact--link { text-decoration: none; color: inherit; }
+a.fact--link:hover .fact__value { color: var(--action-dark); }
+.todo { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.todo__item { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; padding: 0.875rem 1rem; border: 1px solid var(--line); border-left: 4px solid var(--info-bg); border-radius: var(--radius); }
+.todo__item--warn { border-left-color: var(--action); background: #fff8fa; }
+.todo__item p { margin: 0.25rem 0 0; }
+.todo__list { margin: 0.375rem 0 0; padding-left: 1.125rem; color: var(--ink-soft); }
+.todo-done { margin: 0; padding: 0.875rem 1rem; border-radius: var(--radius); background: var(--ok-bg); color: var(--ok); font-weight: 600; max-width: none; }
+
+// A small bar chart: one column per day
+.bars { list-style: none; display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 0.375rem; align-items: end; height: 9rem; margin: 0.5rem 0 0; padding: 0; }
+.bars__col { display: grid; grid-template-rows: 1fr auto auto; justify-items: center; height: 100%; gap: 0.125rem; }
+.bars__bar { align-self: end; width: 100%; max-width: 1.5rem; border-radius: 6px 6px 2px 2px; background: var(--brand-grad); min-height: 4px; }
+.bars__bar.is-empty { background: var(--line); }
+.bars__count { font-size: 0.6875rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.bars__day { font-size: 0.6875rem; color: var(--ink-soft); }
+
+// Notifications
+.notifications__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.notification { display: flex; align-items: flex-start; gap: 0.75rem; width: 100%; padding: 0.625rem 0.75rem; border: 0; border-radius: var(--radius); background: transparent; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.notification:hover { background: var(--paper); }
+.notification.is-unread { background: #fff5f8; }
+.notification__dot { flex: none; width: 0.625rem; height: 0.625rem; margin-top: 0.4375rem; border-radius: 50%; background: transparent; }
+.notification.is-unread .notification__dot { background: var(--action); }
+.notification__body { display: grid; gap: 0.125rem; min-width: 0; }
+.notification__text { font-weight: 500; }
+.notification.is-unread .notification__text { font-weight: 600; }
+.notification__note { color: var(--ink-soft); font-size: 0.875rem; }
+.notification__time { color: var(--ink-soft); font-size: 0.8125rem; }
+
+@media (max-width: 36rem) {
+  .bars { gap: 0.125rem; }
+  .bars__count { display: none; }
+  .reject input { width: 100%; }
+}

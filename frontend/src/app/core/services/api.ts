@@ -3,7 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
-  AdminOverview, Company, DeviceSession, FilterOptions, Influencer, InfluencerQuery, Invitation, InvitationPreview, Item,
+  AdminCreator, AdminOverview, AppNotification, ApprovalStatus, BrandRequest, BulkDeleteResult, Company, CreatorDashboard, CreatorRequest, DeviceSession, FilterOptions, Influencer,
+  InfluencerQuery, Invitation, InvitationPreview, Item, RequestInput, RequestStatus,
   CreatorAccountInput, CreatorPackageInput, CreatorProfile, Member, Paginated, Role, Shortlist, User,
 } from '../models';
 
@@ -198,8 +199,35 @@ export class Api {
     return this.http.get<Item<AdminOverview>>(`${this.base}/admin/overview`).pipe(map((r) => r.data));
   }
 
-  adminCompanies(search = ''): Observable<Paginated<Company>> {
-    return this.http.get<Paginated<Company>>(`${this.base}/admin/companies`, { params: search ? { search } : {} });
+  adminCompanies(search = '', approval: ApprovalStatus | '' = ''): Observable<Paginated<Company>> {
+    const params: Record<string, string> = {};
+    if (search) {
+      params['search'] = search;
+    }
+    if (approval) {
+      params['approval'] = approval;
+    }
+    return this.http.get<Paginated<Company>>(`${this.base}/admin/companies`, { params });
+  }
+
+  adminCreators(search = '', approval: ApprovalStatus | '' = ''): Observable<Paginated<AdminCreator>> {
+    const params: Record<string, string> = {};
+    if (search) {
+      params['search'] = search;
+    }
+    if (approval) {
+      params['approval'] = approval;
+    }
+    return this.http.get<Paginated<AdminCreator>>(`${this.base}/admin/creators`, { params });
+  }
+
+  /** Approves or rejects a brand. A note explains a rejection. */
+  adminReviewCompany(id: number, decision: 'approved' | 'rejected', note = ''): Observable<Company> {
+    return this.http.post<Item<Company>>(`${this.base}/admin/companies/${id}/review`, { decision, note: note || null }).pipe(map((r) => r.data));
+  }
+
+  adminReviewCreator(id: number, decision: 'approved' | 'rejected', note = ''): Observable<AdminCreator> {
+    return this.http.post<Item<AdminCreator>>(`${this.base}/admin/creators/${id}/review`, { decision, note: note || null }).pipe(map((r) => r.data));
   }
 
   adminSetCompanyStatus(id: number, status: Company['status']): Observable<Company> {
@@ -208,5 +236,52 @@ export class Api {
 
   adminUsers(search = ''): Observable<Paginated<User>> {
     return this.http.get<Paginated<User>>(`${this.base}/admin/users`, { params: search ? { search } : {} });
+  }
+
+  // ---- Requests from brands to creators ----
+  /** The signed-in brand's own requests. */
+  brandRequests(status: RequestStatus | '' = ''): Observable<Paginated<BrandRequest>> {
+    return this.http.get<Paginated<BrandRequest>>(`${this.base}/requests`, { params: status ? { status } : {} });
+  }
+
+  sendRequest(input: RequestInput): Observable<BrandRequest> {
+    return this.http.post<Item<BrandRequest>>(`${this.base}/requests`, input).pipe(map((r) => r.data));
+  }
+
+  withdrawRequest(id: number): Observable<BrandRequest> {
+    return this.http.delete<Item<BrandRequest>>(`${this.base}/requests/${id}`).pipe(map((r) => r.data));
+  }
+
+  /** The signed-in creator's inbox. `pending_count` counts every unanswered request, whatever the filter. */
+  creatorRequests(status: RequestStatus | '' = ''): Observable<Paginated<CreatorRequest> & { pending_count: number }> {
+    return this.http.get<Paginated<CreatorRequest> & { pending_count: number }>(`${this.base}/creator/requests`, { params: status ? { status } : {} });
+  }
+
+  respondToRequest(id: number, decision: 'accepted' | 'declined', response = ''): Observable<CreatorRequest> {
+    return this.http
+      .patch<Item<CreatorRequest>>(`${this.base}/creator/requests/${id}`, { decision, response: response || null })
+      .pipe(map((r) => r.data));
+  }
+
+  // ---- Creator dashboard and notifications ----
+  creatorDashboard(): Observable<CreatorDashboard> {
+    return this.http.get<Item<CreatorDashboard>>(`${this.base}/creator/dashboard`).pipe(map((r) => r.data));
+  }
+
+  notifications(): Observable<{ data: AppNotification[]; unread_count: number }> {
+    return this.http.get<{ data: AppNotification[]; unread_count: number }>(`${this.base}/notifications`);
+  }
+
+  markNotificationRead(id: string): Observable<{ unread_count: number }> {
+    return this.http.post<{ unread_count: number }>(`${this.base}/notifications/${id}/read`, {});
+  }
+
+  markAllNotificationsRead(): Observable<{ unread_count: number }> {
+    return this.http.post<{ unread_count: number }>(`${this.base}/notifications/read-all`, {});
+  }
+
+  /** Permanently deletes several rows at once. Super admin only; the server never deletes super admins or the caller. */
+  adminBulkDelete(type: 'users' | 'companies' | 'creators', ids: number[]): Observable<BulkDeleteResult> {
+    return this.http.post<Item<BulkDeleteResult>>(`${this.base}/admin/${type}/bulk-delete`, { ids }).pipe(map((r) => r.data));
   }
 }

@@ -43,11 +43,26 @@ const LINK_EXAMPLES: Record<Platform, string> = {
         <p class="alert alert--error" role="alert">{{ error() | t }}</p>
       }
 
-      <section class="card visibility" [class.is-on]="p.listed">
+      @if (p.approval_status === 'pending') {
+        <section class="card approval approval--pending" role="status">
+          <h2>{{ 'Your profile is waiting for approval' | t }}</h2>
+          <p>{{ 'The BrandMate team reviews every new creator before brands can see them. You can keep editing your profile in the meantime.' | t }}</p>
+        </section>
+      } @else if (p.approval_status === 'rejected') {
+        <section class="card approval approval--rejected" role="alert">
+          <h2>{{ 'Your profile was not approved' | t }}</h2>
+          @if (p.review_note) {
+            <p>{{ p.review_note }}</p>
+          }
+          <p class="muted">{{ 'Update your profile and contact the BrandMate team to ask for another review.' | t }}</p>
+        </section>
+      }
+
+      <section class="card visibility" [class.is-on]="p.listed && p.approval_status === 'approved'">
         <div>
-          <h2>{{ (p.listed ? 'Brands can find you' : 'Your profile is hidden from brands') | t }}</h2>
+          <h2>{{ (p.listed ? (p.approval_status === 'approved' ? 'Brands can find you' : 'You are listed, waiting for approval') : 'Your profile is hidden from brands') | t }}</h2>
           @if (p.listed) {
-            <p class="muted">{{ 'Your profile appears in brand searches.' | t }}</p>
+            <p class="muted">{{ (p.approval_status === 'approved' ? 'Your profile appears in brand searches.' : 'You will appear in brand searches as soon as the BrandMate team approves your profile.') | t }}</p>
           } @else if (p.missing_for_listing.length) {
             <p>{{ 'Before you can be listed:' | t }}</p>
             <ul>

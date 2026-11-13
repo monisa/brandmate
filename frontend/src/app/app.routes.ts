@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import {
-  authGuard, brandHomeGuard, companyGuard, creatorGuard, guestGuard, permissionGuard, superAdminGuard, verifiedGuard,
+  approvedCompanyGuard, authGuard, brandHomeGuard, companyGuard, creatorGuard, guestGuard, permissionGuard, superAdminGuard, verifiedGuard,
 } from './core/guards/guards';
 
 // Every feature area is lazy loaded.
@@ -27,32 +27,43 @@ export const routes: Routes = [
     loadComponent: () => import('./layout/shell').then((m) => m.Shell),
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
-      { path: 'creator', canActivate: [creatorGuard], loadComponent: () => import('./features/creator/creator-home').then((m) => m.CreatorHome) },
+      { path: 'creator', canActivate: [creatorGuard], loadComponent: () => import('./features/creator/creator-dashboard').then((m) => m.CreatorDashboardPage) },
+      { path: 'creator/profile', canActivate: [creatorGuard], loadComponent: () => import('./features/creator/creator-home').then((m) => m.CreatorHome) },
+      {
+        path: 'creator/requests',
+        canActivate: [creatorGuard],
+        loadComponent: () => import('./features/requests/creator-requests').then((m) => m.CreatorRequests),
+      },
       { path: 'dashboard', canActivate: [brandHomeGuard], loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.Dashboard) },
       {
         path: 'influencers',
-        canActivate: [companyGuard, permissionGuard('influencer.search')],
+        canActivate: [companyGuard, approvedCompanyGuard, permissionGuard('influencer.search')],
         loadComponent: () => import('./features/influencers/search').then((m) => m.InfluencerSearch),
       },
       {
         path: 'influencers/compare',
-        canActivate: [companyGuard, permissionGuard('influencer.view')],
+        canActivate: [companyGuard, approvedCompanyGuard, permissionGuard('influencer.view')],
         loadComponent: () => import('./features/influencers/compare').then((m) => m.InfluencerCompare),
       },
       {
         path: 'influencers/:id',
-        canActivate: [companyGuard, permissionGuard('influencer.view')],
+        canActivate: [companyGuard, approvedCompanyGuard, permissionGuard('influencer.view')],
         loadComponent: () => import('./features/influencers/profile').then((m) => m.InfluencerProfile),
       },
       {
         path: 'shortlists',
-        canActivate: [companyGuard, permissionGuard('influencer.view')],
+        canActivate: [companyGuard, approvedCompanyGuard, permissionGuard('influencer.view')],
         loadComponent: () => import('./features/shortlists/shortlists').then((m) => m.Shortlists),
       },
       {
         path: 'shortlists/:id',
-        canActivate: [companyGuard, permissionGuard('influencer.view')],
+        canActivate: [companyGuard, approvedCompanyGuard, permissionGuard('influencer.view')],
         loadComponent: () => import('./features/shortlists/shortlist-detail').then((m) => m.ShortlistDetail),
+      },
+      {
+        path: 'requests',
+        canActivate: [companyGuard, approvedCompanyGuard, permissionGuard('request.manage')],
+        loadComponent: () => import('./features/requests/brand-requests').then((m) => m.BrandRequests),
       },
       { path: 'team', canActivate: [companyGuard], loadComponent: () => import('./features/team/team').then((m) => m.Team) },
       { path: 'settings', loadChildren: () => import('./features/settings/settings.routes').then((m) => m.settingsRoutes) },
