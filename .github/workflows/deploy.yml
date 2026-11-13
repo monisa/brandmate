@@ -64,7 +64,12 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           # Keys copied on Windows often carry CRLF line endings, which OpenSSH rejects.
-          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_deploy
+          # Anything pasted before the BEGIN line (a title, blank lines, spaces) is dropped.
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//' \
+            | awk '/^-----BEGIN /{found=1} found' > ~/.ssh/id_deploy
+          if [ ! -s ~/.ssh/id_deploy ]; then
+            printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_deploy  # keep as-is for the checks below
+          fi
           chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           cat > ~/.ssh/config <<EOF
@@ -86,7 +91,13 @@ jobs:
             ssh-*|ecdsa-*) echo "::error::HOSTINGER_SSH_KEY holds a PUBLIC key (.pub). Use the private key file without .pub."; exit 1 ;;
             PuTTY-User-Key-File*) echo "::error::HOSTINGER_SSH_KEY is a PuTTY .ppk key. Export it in PuTTYgen via Conversions > Export OpenSSH key."; exit 1 ;;
             -----BEGIN*) ;;
-            *) echo "::error::HOSTINGER_SSH_KEY does not start with a -----BEGIN line (it starts with ${#first} characters of something else). Paste the whole private key file."; exit 1 ;;
+            *)
+              lines=$(wc -l < ~/.ssh/id_deploy)
+              if echo "$first" | grep -Eq '^[A-Za-z0-9+/=]+$'; then kind="only base64 characters (the BEGIN line is missing)";
+              elif echo "$first" | grep -q ' '; then kind="words with spaces (a password or note?)";
+              else kind="other characters"; fi
+              echo "::error::HOSTINGER_SSH_KEY has no -----BEGIN line. It has $lines lines; the first is ${#first} characters of $kind. If you also have a HOSTINGER_SSH_KEY under Settings > Environments > production, it overrides the repository secret."
+              exit 1 ;;
           esac
           if ! ssh-keygen -y -P '' -f ~/.ssh/id_deploy > /dev/null 2> /tmp/keyerr; then
             echo "::error::HOSTINGER_SSH_KEY could not be read ($(cat /tmp/keyerr)). Keys with a passphrase are not supported; create one with -N \"\". The key has $(wc -l < ~/.ssh/id_deploy) lines and ends with: $(tail -1 ~/.ssh/id_deploy | cut -c1-30)"
