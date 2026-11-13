@@ -26,7 +26,7 @@ class ChatTest extends TestCase
         $creator->save();
 
         SocialProfile::create([
-            'influencer_id' => $creator->id, 'platform' => 'instagram', 'username' => 'riya.eats',
+            'influencer_id' => $creator->id, 'platform' => 'instagram', 'username' => strtolower(str_replace(' ', '.', $name)),
             'followers' => 5000, 'data_source' => 'self_reported', 'provider' => 'Self-reported',
         ]);
 

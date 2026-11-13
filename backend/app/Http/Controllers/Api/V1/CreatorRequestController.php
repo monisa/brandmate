@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Companies\CompanyScope;
 use App\Domain\Requests\Models\CollaborationRequest;
+use App\Domain\Subscriptions\Entitlements;
 use App\Http\Controllers\Controller;
 use App\Notifications\InAppNotification;
 use Illuminate\Http\JsonResponse;
