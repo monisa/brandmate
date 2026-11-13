@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Admin\AdminController;
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandDirectoryController;
+use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CreatorController;
 use App\Http\Controllers\Api\V1\CreatorDashboardController;
@@ -74,6 +75,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('checkout', [SubscriptionController::class, 'checkout'])->middleware('throttle:10,1');
         Route::post('confirm', [SubscriptionController::class, 'confirm'])->middleware('throttle:10,1');
         Route::post('cancel', [SubscriptionController::class, 'cancel']);
+    });
+
+    // ---- Chat between a brand company and a creator (both must be subscribed to send) ----
+    Route::middleware('verified')->prefix('chat')->group(function () {
+        Route::get('conversations', [ChatController::class, 'conversations']);
+        Route::post('conversations', [ChatController::class, 'start'])->middleware('throttle:30,1');
+        Route::get('conversations/{id}/messages', [ChatController::class, 'messages'])->whereNumber('id');
+        Route::post('conversations/{id}/messages', [ChatController::class, 'send'])->middleware('throttle:60,1')->whereNumber('id');
+        Route::get('unread', [ChatController::class, 'unread']);
     });
 
     // ---- In-app notifications (any signed-in, verified person) ----

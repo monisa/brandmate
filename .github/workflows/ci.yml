@@ -22,7 +22,24 @@ jobs:
       - run: cp .env.example .env && php artisan key:generate
       - run: composer audit
       - name: Tests (SQLite in memory, see phpunit.xml)
-        run: php artisan test
+        run: |
+          set +e
+          php artisan test --log-junit=junit.xml
+          status=$?
+          set -e
+          # Show every failing test as an annotation, so the reason is visible without opening the log.
+          if [ $status -ne 0 ] && [ -f junit.xml ]; then
+            php -r '
+              $xml = @simplexml_load_file("junit.xml");
+              if (!$xml) { exit; }
+              foreach ($xml->xpath("//testcase[failure or error]") as $case) {
+                $problem = isset($case->failure) ? $case->failure : $case->error;
+                $text = preg_replace("/\s+/", " ", trim((string) $problem));
+                echo "::error::" . $case["class"] . "::" . $case["name"] . " | " . substr($text, 0, 800) . "\n";
+              }
+            '
+          fi
+          exit $status
 
   frontend:
     runs-on: ubuntu-latest
