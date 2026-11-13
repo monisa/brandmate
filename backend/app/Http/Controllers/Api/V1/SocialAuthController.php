@@ -120,6 +120,10 @@ class SocialAuthController extends Controller
             return response()->json(['message' => 'This sign-in link has expired. Please try again.'], 422);
         }
 
+        if ($user->deactivated_at !== null) {
+            return response()->json(['message' => 'This account has been deactivated. Please contact support.'], 422);
+        }
+
         $this->audit->log('auth.login', $user, ['method' => $entry['provider']], actor: $user);
 
         $device = Str::limit((string) ($request->input('device_name') ?: $request->userAgent() ?: 'Unknown device'), 120, '');

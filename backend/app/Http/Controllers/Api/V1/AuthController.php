@@ -112,6 +112,10 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['email' => ['These credentials do not match our records.']]);
         }
 
+        if ($user->deactivated_at !== null) {
+            throw ValidationException::withMessages(['email' => ['This account has been deactivated. Please contact support.']]);
+        }
+
         $this->audit->log('auth.login', $user, actor: $user);
 
         return $this->tokenResponse($user, $request);

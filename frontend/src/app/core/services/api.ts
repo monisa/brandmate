@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
-  AdminCreator, AdminOverview, AppNotification, ApprovalStatus, BrandCard, BrandFilterOptions, BrandRequest, BulkDeleteResult, ChatMessage, ChatMessages,
+  AccessRow, AdminCreator, AdminOverview, AppNotification, ApprovalStatus, BrandCard, BrandFilterOptions, BrandRequest, BulkDeleteResult, ChatMessage, ChatMessages,
   CheckoutDetails, Company, Conversation, CreatorDashboard, CreatorRequest, SubscriptionSummary, DeviceSession, FilterOptions, Influencer,
   InfluencerQuery, Invitation, InvitationPreview, Item, RequestInput, RequestStatus,
   CreatorAccountInput, CreatorPackageInput, CreatorProfile, Member, Paginated, Role, Shortlist, User,
@@ -297,6 +297,19 @@ export class Api {
 
   confirmPayment(payload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }): Observable<SubscriptionSummary> {
     return this.http.post<Item<SubscriptionSummary>>(`${this.base}/subscription/confirm`, payload).pipe(map((r) => r.data));
+  }
+
+  // ---- Super admin: sign-in and subscriptions by hand ----
+  adminAccess(search: string): Observable<AccessRow[]> {
+    return this.http.get<{ data: AccessRow[] }>(`${this.base}/admin/access`, { params: { search } }).pipe(map((r) => r.data));
+  }
+
+  adminSetActive(id: number, active: boolean): Observable<AccessRow> {
+    return this.http.patch<Item<AccessRow>>(`${this.base}/admin/access/${id}/active`, { active }).pipe(map((r) => r.data));
+  }
+
+  adminSetSubscription(id: number, action: 'grant' | 'revoke', days?: number): Observable<AccessRow> {
+    return this.http.post<Item<AccessRow>>(`${this.base}/admin/access/${id}/subscription`, days ? { action, days } : { action }).pipe(map((r) => r.data));
   }
 
   // ---- Brands, as a creator sees them ----

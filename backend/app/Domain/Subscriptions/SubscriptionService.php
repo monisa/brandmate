@@ -84,6 +84,34 @@ class SubscriptionService
         return $this->applyPayment($subscription, $paymentId, SubscriptionPricing::totalMinor());
     }
 
+    /** Gives access for a number of days without a payment, for example to fix a failed unlock. */
+    public function grantManually(User $user, int $days): Subscription
+    {
+        $subscriber = $this->subscriberColumns($user);
+        $existing = Subscription::where($subscriber['where'])->first();
+
+        return Subscription::updateOrCreate($subscriber['where'], [
+            'status' => Subscription::ACTIVE,
+            'gateway' => $existing?->gateway_subscription_id ? 'razorpay' : 'manual',
+            'price_minor' => SubscriptionPricing::priceMinor(),
+            'gst_minor' => SubscriptionPricing::gstMinor(),
+            'total_minor' => SubscriptionPricing::totalMinor(),
+            'currency' => config('subscription.currency'),
+            'current_period_start' => now(),
+            'current_period_end' => now()->addDays(max(1, $days)),
+            'cancel_at_period_end' => true,
+        ]);
+    }
+
+    /** Ends access straight away. */
+    public function revokeManually(User $user): void
+    {
+        $subscriber = $this->subscriberColumns($user);
+        Subscription::where($subscriber['where'])->first()?->forceFill([
+            'status' => Subscription::EXPIRED, 'current_period_end' => now(), 'cancel_at_period_end' => true,
+        ])->save();
+    }
+
     /**
      * Applies one Razorpay webhook. Each event id is processed once, so retries are harmless. Events
      * for orders that are not ours (the account is shared with other software) are ignored.

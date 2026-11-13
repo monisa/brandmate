@@ -416,3 +416,14 @@ export interface ChatMessages {
   data: ChatMessage[];
   meta: { can_send: boolean; reason: 'subscription_required' | 'counterpart_not_subscribed' | null };
 }
+
+/** A person found by the super admin, with what they can currently do. */
+export interface AccessRow {
+  id: number;
+  name: string;
+  email: string;
+  kind: 'creator' | 'brand';
+  company: string | null;
+  deactivated: boolean;
+  subscription: { active: boolean; status: string; until: string | null };
+}

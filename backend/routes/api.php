@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Admin\AccessController;
 use App\Http\Controllers\Api\V1\Admin\AdminController;
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
@@ -179,6 +180,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('users/bulk-delete', [AdminController::class, 'bulkDeleteUsers']);
         Route::post('companies/bulk-delete', [AdminController::class, 'bulkDeleteCompanies']);
         Route::post('creators/bulk-delete', [AdminController::class, 'bulkDeleteCreators']);
+        Route::get('access', [AccessController::class, 'index']);
+        Route::patch('access/{id}/active', [AccessController::class, 'setActive'])->whereNumber('id');
+        Route::post('access/{id}/subscription', [AccessController::class, 'updateSubscription'])->whereNumber('id');
         Route::get('audit-logs', [AdminController::class, 'auditLogs']);
     });
 });

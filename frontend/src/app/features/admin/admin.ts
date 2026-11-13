@@ -10,11 +10,12 @@ import { Api } from '../../core/services/api';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { ApprovalBadge } from '../../shared/components/approval-badge';
 import { BulkDeleteBar } from '../../shared/components/bulk-delete-bar';
+import { Access } from './access';
 import { Approvals } from './approvals';
 
 @Component({
   selector: 'app-admin',
-  imports: [TPipe, DatePipe, Approvals, ApprovalBadge, BulkDeleteBar],
+  imports: [TPipe, DatePipe, Access, Approvals, ApprovalBadge, BulkDeleteBar],
   template: `
     <header class="page-head">
       <h1>{{ 'Platform admin' | t }}</h1>
@@ -37,6 +38,8 @@ import { Approvals } from './approvals';
         <div class="fact"><span class="fact__label">{{ 'Email not confirmed' | t }}</span><span class="fact__value">{{ o.unverified_users }}</span></div>
       </section>
     }
+
+    <app-access />
 
     <app-approvals [pendingCompanies]="overview()?.pending_companies ?? 0" [pendingCreators]="overview()?.pending_creators ?? 0" (changed)="reloadAll()" />
 
