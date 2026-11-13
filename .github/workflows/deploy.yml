@@ -170,7 +170,10 @@ jobs:
           echo "composer: ${COMPOSER:-not found}"
           [ -n "$COMPOSER" ] || exit 3
           mkdir -p storage/app storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
-          echo "== composer install"; $COMPOSER install --no-dev --optimize-autoloader --no-interaction
+          # Hostinger disables proc_open, which Composer needs to run Laravel's
+          # post-install scripts; skip them and run package discovery directly.
+          echo "== composer install"; $COMPOSER install --no-dev --optimize-autoloader --no-interaction --no-scripts
+          echo "== package discover"; php artisan package:discover --ansi
           echo "== migrate"; php artisan migrate --force
           echo "== cache"; php artisan config:cache; php artisan route:cache; php artisan view:cache
           REMOTE
