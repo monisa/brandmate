@@ -1,0 +1,98 @@
+name: Deploy to Hostinger
+
+# Runs after CI passes on main, or by hand from the Actions tab.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+      SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
+      SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
+      # Folder that holds public_html, e.g. domains/yourdomain.com (relative to the SSH home).
+      DEPLOY_PATH: ${{ secrets.HOSTINGER_DEPLOY_PATH }}
+    steps:
+      - name: Check deploy settings
+        run: |
+          missing=""
+          for name in SSH_HOST SSH_PORT SSH_USER DEPLOY_PATH; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          [ -n "${{ secrets.HOSTINGER_SSH_KEY }}" ] || missing="$missing SSH_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing (see deploy/hostinger/GITHUB-DEPLOY.md)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build the Angular app
+        working-directory: frontend
+        run: |
+          npm ci
+          npx ng build --configuration production
+
+      - name: Assemble the web root
+        run: |
+          mkdir -p out/public_html
+          cp -r frontend/dist/frontend/browser/. out/public_html/
+          cp deploy/hostinger/public_html/index.php deploy/hostinger/public_html/.htaccess out/public_html/
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HOSTINGER_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          cat > ~/.ssh/config <<EOF
+          Host hostinger
+            HostName $SSH_HOST
+            Port $SSH_PORT
+            User $SSH_USER
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+          EOF
+
+      # Nothing on the server is deleted: .env, storage, vendor and older
+      # asset files stay. Old hashed asset files are harmless.
+      - name: Upload the Laravel app
+        run: |
+          printf '%s\n' '.env' '.env.*' '/vendor/' '/node_modules/' '/storage/' '/tests/' \
+            '/bootstrap/cache/*.php' '*.sqlite' '*.log' > /tmp/rsync-exclude
+          rsync -az --exclude-from=/tmp/rsync-exclude backend/ "hostinger:$DEPLOY_PATH/brandmate-app/"
+
+      - name: Install dependencies and migrate
+        run: |
+          ssh hostinger "set -e
+            cd '$DEPLOY_PATH/brandmate-app'
+            mkdir -p storage/app storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+            COMPOSER=\$(command -v composer2 || command -v composer)
+            \$COMPOSER install --no-dev --optimize-autoloader --no-interaction
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache"
+
+      # The web root goes last, so the new pages only appear once the API is ready.
+      - name: Upload the website
+        run: rsync -az out/public_html/ "hostinger:$DEPLOY_PATH/public_html/"

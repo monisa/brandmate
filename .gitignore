@@ -1,0 +1,12 @@
+.env
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Build outputs and release bundles: GitHub Actions builds these itself.
+*.zip
+/release/
+/brandmate/
+/brandmate-hostinger/*.zip
