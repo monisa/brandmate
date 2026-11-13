@@ -71,7 +71,25 @@ jobs:
             User $SSH_USER
             IdentityFile ~/.ssh/id_deploy
             IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking accept-new
+            ConnectTimeout 20
           EOF
+
+      - name: Test the SSH connection
+        run: |
+          if ! ssh-keygen -y -f ~/.ssh/id_deploy > /dev/null 2> /tmp/keyerr; then
+            echo "::error::HOSTINGER_SSH_KEY is not a valid private key: $(cat /tmp/keyerr). Paste the whole file, including the BEGIN and END lines."
+            exit 1
+          fi
+          if ! ssh hostinger 'echo connected; pwd' 2> /tmp/ssherr; then
+            echo "::error::SSH to $SSH_USER@host:$SSH_PORT failed: $(tail -3 /tmp/ssherr | tr '\n' ' ' | sed "s/$SSH_HOST/host/g")"
+            exit 1
+          fi
+          ssh hostinger "test -d '$DEPLOY_PATH/public_html'" || {
+            echo "::error::Folder '$DEPLOY_PATH/public_html' was not found in the SSH home. Check HOSTINGER_DEPLOY_PATH (e.g. domains/yourdomain.com)."
+            exit 1
+          }
 
       # Nothing on the server is deleted: .env, storage, vendor and older
       # asset files stay. Old hashed asset files are harmless.
