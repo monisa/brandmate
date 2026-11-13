@@ -22,7 +22,8 @@ class SubscriptionService
     }
 
     /**
-     * Opens a Razorpay subscription and returns what Checkout needs to take the first payment.
+     * Opens a Razorpay order for one more month and returns what Checkout needs to take the payment.
+     * The order id is kept in gateway_subscription_id until the payment is confirmed.
      *
      * @return array<string, mixed>
      */
@@ -32,18 +33,17 @@ class SubscriptionService
             throw new RuntimeException('Payments are not set up yet. Please try again later.');
         }
 
-        $existing = $this->subscriptionFor($user);
-        if ($existing && $existing->status === Subscription::ACTIVE && $existing->grantsAccess() && ! $existing->cancel_at_period_end) {
-            throw ValidationException::withMessages(['subscription' => ['You already have an active subscription.']]);
-        }
-
         $subscriber = $this->subscriberColumns($user);
-        $created = $this->razorpay->createSubscription(['for' => $subscriber['label']]);
+        $existing = $this->subscriptionFor($user);
+        $order = $this->razorpay->createOrder(
+            SubscriptionPricing::totalMinor(), 'bm_'.str_replace(':', '', $subscriber['label']).'_'.now()->timestamp, ['for' => $subscriber['label']],
+        );
 
+        // Paying while still active simply adds a month, so an active row keeps its status and period.
         $subscription = Subscription::updateOrCreate($subscriber['where'], [
-            'status' => Subscription::CREATED,
+            'status' => $existing && $existing->grantsAccess() ? $existing->status : Subscription::CREATED,
             'gateway' => 'razorpay',
-            'gateway_subscription_id' => $created['id'],
+            'gateway_subscription_id' => $order['id'],
             'price_minor' => SubscriptionPricing::priceMinor(),
             'gst_minor' => SubscriptionPricing::gstMinor(),
             'total_minor' => SubscriptionPricing::totalMinor(),
@@ -53,61 +53,40 @@ class SubscriptionService
 
         return [
             'key_id' => $this->razorpay->keyId(),
-            'subscription_id' => $subscription->gateway_subscription_id,
+            'order_id' => $subscription->gateway_subscription_id,
+            'amount' => SubscriptionPricing::totalMinor(),
+            'currency' => config('subscription.currency'),
             'name' => 'BrandMate',
-            'description' => 'Monthly subscription, Rs 999 plus 18% GST',
+            'description' => 'One month, Rs 999 plus 18% GST',
             'prefill' => ['name' => $user->name, 'email' => $user->email, 'contact' => $user->phone],
         ];
     }
 
     /**
      * Called after Checkout reports a payment. The signature proves the payment is real and
-     * belongs to this subscription; only then does access start. Safe to call twice.
+     * belongs to this order; only then does access extend. Safe to call twice.
      */
-    public function confirmPayment(User $user, string $paymentId, string $subscriptionId, string $signature): Subscription
+    public function confirmPayment(User $user, string $orderId, string $paymentId, string $signature): Subscription
     {
-        if (! $this->razorpay->paymentSignatureIsValid($paymentId, $subscriptionId, $signature)) {
+        if (! $this->razorpay->paymentSignatureIsValid($orderId, $paymentId, $signature)) {
             throw ValidationException::withMessages(['razorpay_signature' => ['The payment could not be verified.']]);
         }
 
         $subscription = $this->subscriptionFor($user);
-        if (! $subscription || $subscription->gateway_subscription_id !== $subscriptionId) {
-            throw ValidationException::withMessages(['razorpay_subscription_id' => ['This payment is not for your subscription.']]);
+        if (! $subscription || $subscription->gateway_subscription_id !== $orderId) {
+            // A retry after the payment was already applied changes nothing.
+            if ($subscription && SubscriptionPayment::where('gateway_payment_id', $paymentId)->where('subscription_id', $subscription->id)->exists()) {
+                return $subscription;
+            }
+            throw ValidationException::withMessages(['razorpay_order_id' => ['This payment is not for your subscription.']]);
         }
 
-        return DB::transaction(function () use ($subscription, $paymentId) {
-            $start = CarbonImmutable::now();
-            $subscription->forceFill([
-                'status' => Subscription::ACTIVE,
-                // The webhook corrects the period to Razorpay's own dates; this covers the gap until it arrives.
-                'current_period_start' => $subscription->current_period_start ?? $start,
-                'current_period_end' => $subscription->current_period_end?->isFuture() ? $subscription->current_period_end : $start->addMonth(),
-            ])->save();
-
-            $this->recordPayment($subscription, $paymentId, SubscriptionPricing::totalMinor());
-
-            return $subscription->refresh();
-        });
-    }
-
-    /** Stops renewals. What was paid for keeps working until the period ends. */
-    public function cancel(User $user): Subscription
-    {
-        $subscription = $this->subscriptionFor($user);
-        if (! $subscription || ! $subscription->grantsAccess()) {
-            throw ValidationException::withMessages(['subscription' => ['There is no active subscription to cancel.']]);
-        }
-
-        if ($subscription->gateway === 'razorpay' && $subscription->gateway_subscription_id) {
-            $this->razorpay->cancelSubscription($subscription->gateway_subscription_id);
-        }
-        $subscription->forceFill(['cancel_at_period_end' => true])->save();
-
-        return $subscription;
+        return $this->applyPayment($subscription, $paymentId, SubscriptionPricing::totalMinor());
     }
 
     /**
-     * Applies one Razorpay webhook. Each event id is processed once, so retries are harmless.
+     * Applies one Razorpay webhook. Each event id is processed once, so retries are harmless. Events
+     * for orders that are not ours (the account is shared with other software) are ignored.
      *
      * @param  array<string, mixed>  $payload
      */
@@ -122,35 +101,47 @@ class SubscriptionService
             }
             DB::table('webhook_events')->insert(['event_id' => $eventId, 'type' => $type, 'processed_at' => now()]);
 
-            $entity = $payload['payload']['subscription']['entity'] ?? null;
-            $subscription = $entity ? Subscription::where('gateway_subscription_id', $entity['id'] ?? '')->first() : null;
-            if (! $subscription) {
-                return; // not one of ours, or a payment with no subscription
+            if (! in_array($type, ['order.paid', 'payment.captured'], true)) {
+                return;
             }
 
-            match ($type) {
-                'subscription.activated', 'subscription.charged' => $this->charged($subscription, $entity, $payload),
-                'subscription.pending', 'subscription.halted' => $subscription->forceFill(['status' => Subscription::PAST_DUE])->save(),
-                'subscription.cancelled' => $subscription->forceFill(['status' => Subscription::CANCELLED, 'cancel_at_period_end' => true])->save(),
-                'subscription.completed', 'subscription.expired' => $subscription->forceFill(['status' => Subscription::EXPIRED])->save(),
-                default => null,
-            };
+            $payment = $payload['payload']['payment']['entity'] ?? null;
+            $orderId = $payment['order_id'] ?? ($payload['payload']['order']['entity']['id'] ?? null);
+            if (! $payment || ! $orderId || ($payment['status'] ?? null) !== 'captured') {
+                return;
+            }
+
+            $subscription = Subscription::where('gateway_subscription_id', $orderId)->first();
+            if ($subscription) {
+                $this->applyPayment($subscription, (string) $payment['id'], (int) $payment['amount']);
+            }
         });
     }
 
-    /** @param array<string, mixed> $entity @param array<string, mixed> $payload */
-    private function charged(Subscription $subscription, array $entity, array $payload): void
+    /** Adds one month, counted from the end of the current period when it is still running. Once per payment. */
+    private function applyPayment(Subscription $subscription, string $paymentId, int $totalMinor): Subscription
     {
-        $subscription->forceFill([
-            'status' => Subscription::ACTIVE,
-            'current_period_start' => isset($entity['current_start']) ? CarbonImmutable::createFromTimestamp($entity['current_start']) : $subscription->current_period_start,
-            'current_period_end' => isset($entity['current_end']) ? CarbonImmutable::createFromTimestamp($entity['current_end']) : $subscription->current_period_end,
-        ])->save();
+        return DB::transaction(function () use ($subscription, $paymentId, $totalMinor) {
+            $locked = Subscription::whereKey($subscription->id)->lockForUpdate()->first() ?? $subscription;
+            if (SubscriptionPayment::where('gateway_payment_id', $paymentId)->exists()) {
+                return $locked;
+            }
 
-        $payment = $payload['payload']['payment']['entity'] ?? null;
-        if ($payment && ($payment['status'] ?? null) === 'captured') {
-            $this->recordPayment($subscription, (string) $payment['id'], (int) $payment['amount']);
-        }
+            $now = CarbonImmutable::now();
+            $running = $locked->grantsAccess() && $locked->current_period_end !== null;
+            $base = $running ? CarbonImmutable::instance($locked->current_period_end) : $now;
+
+            $locked->forceFill([
+                'status' => Subscription::ACTIVE,
+                'cancel_at_period_end' => false,
+                'current_period_start' => $running ? ($locked->current_period_start ?? $now) : $now,
+                'current_period_end' => $base->addMonth(),
+            ])->save();
+
+            $this->recordPayment($locked, $paymentId, $totalMinor);
+
+            return $locked->refresh();
+        });
     }
 
     /** Records a charge once per Razorpay payment id and gives it an invoice number. */

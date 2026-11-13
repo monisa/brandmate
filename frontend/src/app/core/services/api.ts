@@ -295,12 +295,8 @@ export class Api {
     return this.http.post<Item<CheckoutDetails>>(`${this.base}/subscription/checkout`, {}).pipe(map((r) => r.data));
   }
 
-  confirmPayment(payload: { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string }): Observable<SubscriptionSummary> {
+  confirmPayment(payload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }): Observable<SubscriptionSummary> {
     return this.http.post<Item<SubscriptionSummary>>(`${this.base}/subscription/confirm`, payload).pipe(map((r) => r.data));
-  }
-
-  cancelSubscription(): Observable<SubscriptionSummary> {
-    return this.http.post<Item<SubscriptionSummary>>(`${this.base}/subscription/cancel`, {}).pipe(map((r) => r.data));
   }
 
   // ---- Brands, as a creator sees them ----

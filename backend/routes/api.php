@@ -74,7 +74,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [SubscriptionController::class, 'show']);
         Route::post('checkout', [SubscriptionController::class, 'checkout'])->middleware('throttle:10,1');
         Route::post('confirm', [SubscriptionController::class, 'confirm'])->middleware('throttle:10,1');
-        Route::post('cancel', [SubscriptionController::class, 'cancel']);
     });
 
     // ---- Chat between a brand company and a creator (both must be subscribed to send) ----

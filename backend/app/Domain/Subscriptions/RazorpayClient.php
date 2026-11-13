@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * The few Razorpay calls the app needs. Keys come from the environment; nothing is hard-coded.
- * https://razorpay.com/docs/api/payments/subscriptions/
+ * https://razorpay.com/docs/api/orders/
  */
 class RazorpayClient
 {
@@ -18,57 +18,38 @@ class RazorpayClient
         return config('subscription.razorpay.key_id') ?: null;
     }
 
-    /** True once the keys and the plan are set, so people can actually pay. */
+    /** True once the keys are set, so people can actually pay. */
     public function configured(): bool
     {
-        return $this->keyId() && config('subscription.razorpay.key_secret') && config('subscription.razorpay.plan_id');
-    }
-
-    /** @return array<string, mixed> */
-    public function createPlan(): array
-    {
-        return $this->http()->post('/plans', [
-            'period' => 'monthly',
-            'interval' => 1,
-            'item' => [
-                'name' => 'BrandMate monthly subscription',
-                'description' => 'Rs 999 a month plus 18% GST',
-                'amount' => SubscriptionPricing::totalMinor(),
-                'currency' => config('subscription.currency'),
-            ],
-        ])->throw()->json();
+        return $this->keyId() && config('subscription.razorpay.key_secret');
     }
 
     /**
+     * A one-time order for one month. Razorpay's auto-renewing subscriptions are not available on
+     * accounts where customers bear the fees, so each month is paid for by hand.
+     *
      * @param  array<string, string>  $notes  who this is for, so a webhook can be matched even if the local row is missing
      * @return array<string, mixed>
      */
-    public function createSubscription(array $notes): array
+    public function createOrder(int $amountMinor, string $receipt, array $notes): array
     {
-        return $this->http()->post('/subscriptions', [
-            'plan_id' => config('subscription.razorpay.plan_id'),
-            'total_count' => 120, // ten years of months; the person can cancel any time
-            'quantity' => 1,
-            'customer_notify' => 1,
+        return $this->http()->post('/orders', [
+            'amount' => $amountMinor,
+            'currency' => config('subscription.currency'),
+            'receipt' => substr($receipt, 0, 40),
             'notes' => $notes,
         ])->throw()->json();
     }
 
-    /** Stops renewals; what was paid for stays valid until the period ends. */
-    public function cancelSubscription(string $subscriptionId): void
-    {
-        $this->http()->post("/subscriptions/{$subscriptionId}/cancel", ['cancel_at_cycle_end' => 1])->throw();
-    }
-
-    /** The signature Checkout returns after a subscription payment: HMAC of "payment_id|subscription_id". */
-    public function paymentSignatureIsValid(string $paymentId, string $subscriptionId, string $signature): bool
+    /** The signature Checkout returns after an order is paid: HMAC of "order_id|payment_id". */
+    public function paymentSignatureIsValid(string $orderId, string $paymentId, string $signature): bool
     {
         $secret = (string) config('subscription.razorpay.key_secret');
         if ($secret === '') {
             return false;
         }
 
-        return hash_equals(hash_hmac('sha256', $paymentId.'|'.$subscriptionId, $secret), $signature);
+        return hash_equals(hash_hmac('sha256', $orderId.'|'.$paymentId, $secret), $signature);
     }
 
     /** A webhook is genuine only when its body matches the signature made with the webhook secret. */

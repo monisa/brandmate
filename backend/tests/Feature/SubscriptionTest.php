@@ -26,7 +26,7 @@ class SubscriptionTest extends TestCase
         parent::setUp();
         config([
             'subscription.enforced' => true,
-            'subscription.razorpay' => ['key_id' => 'rzp_test_key', 'key_secret' => self::KEY_SECRET, 'plan_id' => 'plan_123', 'webhook_secret' => self::WEBHOOK_SECRET],
+            'subscription.razorpay' => ['key_id' => 'rzp_test_key', 'key_secret' => self::KEY_SECRET, 'webhook_secret' => self::WEBHOOK_SECRET],
         ]);
     }
 
@@ -73,14 +73,19 @@ class SubscriptionTest extends TestCase
         ], $body);
     }
 
-    private function chargedEvent(string $subscriptionId, string $paymentId = 'pay_1', int $amount = 117882): array
+    private function paidEvent(string $orderId, string $paymentId = 'pay_1', int $amount = 117882, string $event = 'payment.captured'): array
     {
         return [
-            'event' => 'subscription.charged',
-            'payload' => [
-                'subscription' => ['entity' => ['id' => $subscriptionId, 'current_start' => now()->timestamp, 'current_end' => now()->addMonth()->timestamp]],
-                'payment' => ['entity' => ['id' => $paymentId, 'amount' => $amount, 'status' => 'captured']],
-            ],
+            'event' => $event,
+            'payload' => ['payment' => ['entity' => ['id' => $paymentId, 'order_id' => $orderId, 'amount' => $amount, 'status' => 'captured']]],
+        ];
+    }
+
+    private function confirmBody(string $orderId, string $paymentId): array
+    {
+        return [
+            'razorpay_order_id' => $orderId, 'razorpay_payment_id' => $paymentId,
+            'razorpay_signature' => hash_hmac('sha256', $orderId.'|'.$paymentId, self::KEY_SECRET),
         ];
     }
 
@@ -268,9 +273,9 @@ class SubscriptionTest extends TestCase
         $this->assertSame(18, $plan['gst_percent']);
     }
 
-    public function test_only_someone_who_can_manage_billing_can_start_a_subscription_for_a_company(): void
+    public function test_only_someone_who_can_manage_billing_can_pay_for_a_company(): void
     {
-        Http::fake(['api.razorpay.com/*' => Http::response(['id' => 'sub_123'])]);
+        Http::fake(['api.razorpay.com/*' => Http::response(['id' => 'order_123'])]);
         $company = $this->createCompany();
 
         Sanctum::actingAs($this->createMember($company));
@@ -280,42 +285,41 @@ class SubscriptionTest extends TestCase
         $admin = $this->createAdmin($company);
         Sanctum::actingAs($admin);
         $this->postJson('/api/v1/subscription/checkout')->assertOk()
-            ->assertJsonPath('data.subscription_id', 'sub_123')->assertJsonPath('data.key_id', 'rzp_test_key')
-            ->assertJsonPath('data.prefill.email', $admin->email);
+            ->assertJsonPath('data.order_id', 'order_123')->assertJsonPath('data.key_id', 'rzp_test_key')
+            ->assertJsonPath('data.amount', 117882)->assertJsonPath('data.prefill.email', $admin->email);
 
-        $this->assertDatabaseHas('subscriptions', ['company_id' => $company->id, 'status' => 'created', 'gateway_subscription_id' => 'sub_123', 'total_minor' => 117882]);
-        Http::assertSent(fn ($request) => $request['plan_id'] === 'plan_123' && $request['total_count'] === 120);
+        $this->assertDatabaseHas('subscriptions', ['company_id' => $company->id, 'status' => 'created', 'gateway_subscription_id' => 'order_123', 'total_minor' => 117882]);
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/orders') && $request['amount'] === 117882 && $request['currency'] === 'INR');
     }
 
     public function test_checkout_says_so_when_payments_are_not_set_up(): void
     {
-        config(['subscription.razorpay.plan_id' => null]);
+        config(['subscription.razorpay.key_secret' => null]);
         Sanctum::actingAs($this->createAdmin($this->createCompany()));
 
         $this->getJson('/api/v1/subscription')->assertJsonPath('data.payments_ready', false);
         $this->postJson('/api/v1/subscription/checkout')->assertStatus(503);
     }
 
-    public function test_a_verified_payment_switches_access_on_once_and_creates_an_invoice(): void
+    public function test_a_verified_payment_gives_a_month_of_access_once_and_creates_an_invoice(): void
     {
         $creator = $this->creator();
         $company = $this->createCompany();
-        $this->subscribe($company, Subscription::CREATED, null, 'sub_123');
+        $this->subscribe($company, Subscription::CREATED, null, 'order_123');
         Subscription::where('company_id', $company->id)->update(['current_period_start' => null, 'current_period_end' => null]);
         $admin = $this->createAdmin($company);
 
         Sanctum::actingAs($admin);
         $this->getJson('/api/v1/influencers/'.$this->profileId($creator))->assertForbidden();
 
-        $payload = [
-            'razorpay_payment_id' => 'pay_1', 'razorpay_subscription_id' => 'sub_123',
-            'razorpay_signature' => hash_hmac('sha256', 'pay_1|sub_123', self::KEY_SECRET),
-        ];
+        $payload = $this->confirmBody('order_123', 'pay_1');
         $this->postJson('/api/v1/subscription/confirm', $payload)->assertOk()
             ->assertJsonPath('data.status', 'active')->assertJsonPath('data.active', true)
             ->assertJsonPath('data.payments.0.total', 1178.82)->assertJsonPath('data.payments.0.gst', 179.82);
         $this->postJson('/api/v1/subscription/confirm', $payload)->assertOk(); // a retry changes nothing
 
+        $row = Subscription::where('company_id', $company->id)->first();
+        $this->assertTrue($row->current_period_end->between(now()->addDays(27), now()->addDays(32)));
         $this->assertDatabaseCount('subscription_payments', 1);
         $this->assertDatabaseHas('subscription_payments', ['gateway_payment_id' => 'pay_1', 'price_minor' => 99900, 'gst_minor' => 17982, 'total_minor' => 117882]);
         $this->assertMatchesRegularExpression('/^BM-\d{4}-\d{6}$/', \App\Domain\Subscriptions\Models\SubscriptionPayment::first()->invoice_number);
@@ -327,111 +331,105 @@ class SubscriptionTest extends TestCase
     public function test_a_forged_or_misdirected_payment_confirmation_is_rejected(): void
     {
         $company = $this->createCompany();
-        $this->subscribe($company, Subscription::CREATED, null, 'sub_123');
+        $this->subscribe($company, Subscription::CREATED, null, 'order_123');
         Sanctum::actingAs($this->createAdmin($company));
 
-        $bad = ['razorpay_payment_id' => 'pay_1', 'razorpay_subscription_id' => 'sub_123', 'razorpay_signature' => 'forged'];
+        $bad = ['razorpay_order_id' => 'order_123', 'razorpay_payment_id' => 'pay_1', 'razorpay_signature' => 'forged'];
         $this->postJson('/api/v1/subscription/confirm', $bad)->assertUnprocessable()->assertJsonValidationErrors('razorpay_signature');
 
-        // A valid signature for somebody else's subscription is not this company's payment.
-        $other = ['razorpay_payment_id' => 'pay_9', 'razorpay_subscription_id' => 'sub_other', 'razorpay_signature' => hash_hmac('sha256', 'pay_9|sub_other', self::KEY_SECRET)];
-        $this->postJson('/api/v1/subscription/confirm', $other)->assertUnprocessable()->assertJsonValidationErrors('razorpay_subscription_id');
+        // A valid signature for somebody else's order is not this company's payment.
+        $this->postJson('/api/v1/subscription/confirm', $this->confirmBody('order_other', 'pay_9'))
+            ->assertUnprocessable()->assertJsonValidationErrors('razorpay_order_id');
 
         $this->postJson('/api/v1/subscription/confirm', [])->assertUnprocessable();
         $this->assertDatabaseCount('subscription_payments', 0);
         $this->assertSame('created', Subscription::where('company_id', $company->id)->value('status'));
     }
 
-    public function test_a_creator_subscribes_for_themselves(): void
+    public function test_a_creator_pays_for_themselves(): void
     {
-        Http::fake(['api.razorpay.com/*' => Http::response(['id' => 'sub_creator'])]);
+        Http::fake(['api.razorpay.com/*' => Http::response(['id' => 'order_creator'])]);
         $creator = $this->creator();
 
         Sanctum::actingAs($creator->user);
         $this->getJson('/api/v1/subscription')->assertJsonPath('data.can_manage', true);
-        $this->postJson('/api/v1/subscription/checkout')->assertOk()->assertJsonPath('data.subscription_id', 'sub_creator');
-        $this->assertDatabaseHas('subscriptions', ['user_id' => $creator->user_id, 'gateway_subscription_id' => 'sub_creator']);
+        $this->postJson('/api/v1/subscription/checkout')->assertOk()->assertJsonPath('data.order_id', 'order_creator');
+        $this->assertDatabaseHas('subscriptions', ['user_id' => $creator->user_id, 'gateway_subscription_id' => 'order_creator']);
     }
 
-    public function test_cancelling_stops_renewal_but_keeps_access_until_the_period_ends(): void
+    public function test_paying_again_while_active_adds_a_month_to_the_end_of_the_period(): void
     {
-        Http::fake(['api.razorpay.com/*' => Http::response(['id' => 'sub_123', 'status' => 'cancelled'])]);
-        $creator = $this->creator();
+        Http::fake(['api.razorpay.com/*' => Http::response(['id' => 'order_next'])]);
         $company = $this->createCompany();
-        $this->subscribe($company, Subscription::ACTIVE, null, 'sub_123');
+        $this->subscribe($company, Subscription::ACTIVE, now()->addDays(10), 'order_old');
+        $admin = $this->createAdmin($company);
 
-        Sanctum::actingAs($this->createAdmin($company));
-        $this->postJson('/api/v1/subscription/cancel')->assertOk()
-            ->assertJsonPath('data.cancel_at_period_end', true)->assertJsonPath('data.active', true);
-        Http::assertSent(fn ($request) => str_contains($request->url(), '/subscriptions/sub_123/cancel') && $request['cancel_at_cycle_end'] === 1);
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/v1/subscription/checkout')->assertOk();
+        $this->assertSame('active', Subscription::where('company_id', $company->id)->value('status')); // still unlocked meanwhile
 
-        Sanctum::actingAs($this->createMember($company));
-        $this->getJson('/api/v1/influencers/'.$this->profileId($creator))->assertOk();
-    }
-
-    public function test_an_active_subscriber_cannot_start_a_second_one(): void
-    {
-        Http::fake(['api.razorpay.com/*' => Http::response(['id' => 'sub_new'])]);
-        $company = $this->createCompany();
-        $this->subscribe($company, Subscription::ACTIVE, null, 'sub_123');
-
-        Sanctum::actingAs($this->createAdmin($company));
-        $this->postJson('/api/v1/subscription/checkout')->assertUnprocessable()->assertJsonValidationErrors('subscription');
-        Http::assertNothingSent();
+        $this->postJson('/api/v1/subscription/confirm', $this->confirmBody('order_next', 'pay_next'))->assertOk();
+        $end = Subscription::where('company_id', $company->id)->first()->current_period_end;
+        $this->assertTrue($end->between(now()->addDays(37), now()->addDays(42)), 'a month is added to the days that were left');
     }
 
     // ---- Webhooks ----
 
-    public function test_a_signed_charge_webhook_renews_access_and_a_replay_changes_nothing(): void
+    public function test_a_signed_payment_webhook_extends_access_and_a_replay_changes_nothing(): void
     {
         $company = $this->createCompany();
-        $this->subscribe($company, Subscription::PAST_DUE, now()->subDays(10), 'sub_123');
+        $this->subscribe($company, Subscription::ACTIVE, now()->subDays(10), 'order_123');
 
-        $this->webhook($this->chargedEvent('sub_123'))->assertOk();
-        $this->webhook($this->chargedEvent('sub_123'))->assertOk(); // Razorpay retried the same event
+        $this->webhook($this->paidEvent('order_123'))->assertOk();
+        $this->webhook($this->paidEvent('order_123'))->assertOk(); // Razorpay retried the same event
+        $this->webhook($this->paidEvent('order_123', 'pay_1', 117882, 'order.paid'), 'evt_other')->assertOk(); // same payment, another event
 
         $subscription = Subscription::where('company_id', $company->id)->first();
         $this->assertSame('active', $subscription->status);
         $this->assertTrue($subscription->current_period_end->isFuture());
         $this->assertTrue($subscription->grantsAccess());
-        $this->assertDatabaseCount('subscription_payments', 1);
-        $this->assertDatabaseCount('webhook_events', 1);
+        $this->assertDatabaseCount('subscription_payments', 1); // one payment, one invoice
+        $this->assertDatabaseCount('webhook_events', 2);
+    }
 
-        // A second month is a new payment and a new invoice.
-        $this->webhook($this->chargedEvent('sub_123', 'pay_2'), 'evt_2')->assertOk();
-        $this->assertDatabaseCount('subscription_payments', 2);
+    public function test_the_confirmation_and_the_webhook_do_not_double_count_a_payment(): void
+    {
+        $company = $this->createCompany();
+        $this->subscribe($company, Subscription::CREATED, null, 'order_123');
+        Subscription::where('company_id', $company->id)->update(['current_period_start' => null, 'current_period_end' => null]);
+
+        Sanctum::actingAs($this->createAdmin($company));
+        $this->postJson('/api/v1/subscription/confirm', $this->confirmBody('order_123', 'pay_1'))->assertOk();
+        $this->webhook($this->paidEvent('order_123', 'pay_1'))->assertOk();
+
+        $end = Subscription::where('company_id', $company->id)->first()->current_period_end;
+        $this->assertTrue($end->between(now()->addDays(27), now()->addDays(32)));
+        $this->assertDatabaseCount('subscription_payments', 1);
     }
 
     public function test_a_webhook_without_a_valid_signature_is_refused_and_changes_nothing(): void
     {
         $company = $this->createCompany();
-        $this->subscribe($company, Subscription::PAST_DUE, now()->subDays(10), 'sub_123');
+        $this->subscribe($company, Subscription::EXPIRED, now()->subDays(10), 'order_123');
 
-        $this->webhook($this->chargedEvent('sub_123'), 'evt_1', 'forged')->assertStatus(400);
+        $this->webhook($this->paidEvent('order_123'), 'evt_1', 'forged')->assertStatus(400);
         $this->call('POST', '/api/v1/webhooks/razorpay', [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'], '{}')->assertStatus(400);
 
-        $this->assertSame('past_due', Subscription::where('company_id', $company->id)->value('status'));
+        $this->assertSame('expired', Subscription::where('company_id', $company->id)->value('status'));
         $this->assertDatabaseCount('subscription_payments', 0);
         $this->assertDatabaseCount('webhook_events', 0);
     }
 
-    public function test_cancellation_and_failure_webhooks_update_the_status(): void
+    public function test_payments_for_other_software_on_the_same_razorpay_account_are_ignored(): void
     {
         $company = $this->createCompany();
-        $this->subscribe($company, Subscription::ACTIVE, null, 'sub_123');
-        $event = fn (string $type) => ['event' => $type, 'payload' => ['subscription' => ['entity' => ['id' => 'sub_123']]]];
+        $this->subscribe($company, Subscription::EXPIRED, now()->subDays(10), 'order_123');
 
-        $this->webhook($event('subscription.halted'), 'e1')->assertOk();
-        $this->assertSame('past_due', Subscription::where('company_id', $company->id)->value('status'));
+        $this->webhook($this->paidEvent('order_from_the_crm', 'pay_crm'))->assertOk();
+        $this->webhook(['event' => 'payment.failed', 'payload' => ['payment' => ['entity' => ['id' => 'pay_x', 'order_id' => 'order_123', 'status' => 'failed']]]], 'e2')->assertOk();
 
-        $this->webhook($event('subscription.cancelled'), 'e2')->assertOk();
-        $row = Subscription::where('company_id', $company->id)->first();
-        $this->assertSame('cancelled', $row->status);
-        $this->assertTrue($row->cancel_at_period_end);
-        $this->assertTrue($row->grantsAccess()); // paid-for time is honoured
-
-        // An unknown subscription is ignored without an error.
-        $this->webhook(['event' => 'subscription.charged', 'payload' => ['subscription' => ['entity' => ['id' => 'sub_unknown']]]], 'e3')->assertOk();
+        $this->assertSame('expired', Subscription::where('company_id', $company->id)->value('status'));
+        $this->assertDatabaseCount('subscription_payments', 0);
     }
 
     // ---- Contact details ----

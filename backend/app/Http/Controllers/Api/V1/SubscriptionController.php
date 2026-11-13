@@ -26,7 +26,7 @@ class SubscriptionController extends Controller
         return response()->json(['data' => $this->summary($request->user())]);
     }
 
-    /** Starts a Razorpay subscription. The browser then opens Checkout with the returned values. */
+    /** Opens a Razorpay order for one month. The browser then opens Checkout with the returned values. */
     public function checkout(Request $request, AuditLogger $audit): JsonResponse
     {
         $this->authorizeManage($request->user());
@@ -46,25 +46,15 @@ class SubscriptionController extends Controller
     {
         $this->authorizeManage($request->user());
         $data = $request->validate([
+            'razorpay_order_id' => ['required', 'string', 'max:100'],
             'razorpay_payment_id' => ['required', 'string', 'max:100'],
-            'razorpay_subscription_id' => ['required', 'string', 'max:100'],
             'razorpay_signature' => ['required', 'string', 'max:200'],
         ]);
 
         $subscription = $this->service->confirmPayment(
-            $request->user(), $data['razorpay_payment_id'], $data['razorpay_subscription_id'], $data['razorpay_signature'],
+            $request->user(), $data['razorpay_order_id'], $data['razorpay_payment_id'], $data['razorpay_signature'],
         );
-        $audit->log('subscription.activated', $subscription);
-
-        return response()->json(['data' => $this->summary($request->user())]);
-    }
-
-    public function cancel(Request $request, AuditLogger $audit): JsonResponse
-    {
-        $this->authorizeManage($request->user());
-
-        $subscription = $this->service->cancel($request->user());
-        $audit->log('subscription.cancelled', $subscription);
+        $audit->log('subscription.paid', $subscription);
 
         return response()->json(['data' => $this->summary($request->user())]);
     }

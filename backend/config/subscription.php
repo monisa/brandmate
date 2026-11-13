@@ -22,8 +22,6 @@ return [
     'razorpay' => [
         'key_id' => env('RAZORPAY_KEY_ID'),
         'key_secret' => env('RAZORPAY_KEY_SECRET'),
-        // Create it once with: php artisan subscription:create-plan
-        'plan_id' => env('RAZORPAY_PLAN_ID'),
         'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET'),
     ],
 ];

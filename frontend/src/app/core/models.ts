@@ -373,7 +373,9 @@ export interface SubscriptionSummary {
 
 export interface CheckoutDetails {
   key_id: string;
-  subscription_id: string;
+  order_id: string;
+  amount: number;
+  currency: string;
   name: string;
   description: string;
   prefill: { name: string; email: string; contact: string | null };
