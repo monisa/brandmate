@@ -195,7 +195,8 @@ class SubscriptionTest extends TestCase
         $this->subscribe($company);
         Sanctum::actingAs($brand);
         $id = $this->postJson('/api/v1/requests', ['creator_id' => $creator->id, 'title' => 'Hello', 'message' => 'Hi'])->assertCreated()->json('data.id');
-        Sanctum::actingAs($creator->user);
+        $this->subscribe($creator->user); // a creator must be subscribed to read and answer requests
+        Sanctum::actingAs(User::findOrFail($creator->user_id));
         $this->patchJson("/api/v1/creator/requests/{$id}", ['decision' => 'accepted'])->assertOk();
 
         Sanctum::actingAs($this->createMember($company));
