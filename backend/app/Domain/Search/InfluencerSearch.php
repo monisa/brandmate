@@ -11,12 +11,13 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
  */
 interface InfluencerSearch
 {
-    public const SORTS = ['followers', 'engagement_rate', 'avg_likes', 'avg_views', 'name'];
+    /** "newest" orders by when the creator joined; it defaults to newest first. */
+    public const SORTS = ['followers', 'engagement_rate', 'avg_likes', 'avg_views', 'name', 'newest'];
 
     /**
      * @param  array{q?: ?string, platform?: ?string, category?: ?string, country?: ?string,
      *     followers_min?: ?int, followers_max?: ?int, engagement_min?: ?float, engagement_max?: ?float,
-     *     verified?: ?bool, sort?: ?string, direction?: ?string}  $filters
+     *     verified?: ?bool, registered?: ?bool, sort?: ?string, direction?: ?string}  $filters
      */
     public function search(array $filters, int $perPage): LengthAwarePaginator;
 }

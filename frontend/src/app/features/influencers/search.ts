@@ -27,6 +27,7 @@ function storedView(): View {
 
 const SORTS = [
   { value: 'followers:desc', label: 'Most followers' },
+  { value: 'newest:desc', label: 'Newest first' },
   { value: 'followers:asc', label: 'Fewest followers' },
   { value: 'engagement_rate:desc', label: 'Highest engagement' },
   { value: 'avg_likes:desc', label: 'Most average likes' },
@@ -35,7 +36,7 @@ const SORTS = [
 ];
 
 const FILTER_KEYS = [
-  'q', 'platform', 'category', 'country', 'followers_min', 'followers_max', 'engagement_min', 'engagement_max', 'verified',
+  'q', 'platform', 'category', 'country', 'followers_min', 'followers_max', 'engagement_min', 'engagement_max', 'verified', 'registered',
 ] as const;
 
 /** Filters that live behind "More filters". */
@@ -71,6 +72,13 @@ const EXTRA_FILTERS = ['country', 'followers_min', 'followers_max', 'engagement_
             <app-platform-icon [platform]="platform" /> {{ platformLabels[platform] }}
           </button>
         }
+        <span class="chips__sep" aria-hidden="true"></span>
+        <button type="button" class="chip chip--registered" [class.is-on]="form.value.registered === '1'"
+                [attr.aria-pressed]="form.value.registered === '1'" (click)="toggleRegistered()"
+                [title]="'Only creators who signed up on BrandMate themselves' | t">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+          {{ 'Registered creators' | t }}
+        </button>
       </div>
 
       @if (options().categories.length) {
@@ -375,6 +383,7 @@ export class InfluencerSearch implements OnInit {
     engagement_min: [''],
     engagement_max: [''],
     verified: [''],
+    registered: [''],
   });
 
   constructor() {
@@ -425,6 +434,13 @@ export class InfluencerSearch implements OnInit {
   /** Platform and category chips search straight away, like tabs in a social feed. */
   protected pick(control: 'platform' | 'category', value: string): void {
     this.form.controls[control].setValue(value);
+    this.apply();
+  }
+
+  /** Shows only creators who signed up on BrandMate themselves. */
+  protected toggleRegistered(): void {
+    const control = this.form.controls.registered;
+    control.setValue(control.value === '1' ? '' : '1');
     this.apply();
   }
 

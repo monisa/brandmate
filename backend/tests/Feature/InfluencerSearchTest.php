@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Domain\Influencers\Models\Influencer;
 use App\Domain\Influencers\Models\SocialProfile;
+use App\Models\User;
 use Database\Seeders\SampleInfluencerSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -44,6 +45,26 @@ class InfluencerSearchTest extends TestCase
     public function test_default_order_is_most_followers_first(): void
     {
         $this->assertSame(['Ben Lim', 'Chitra Nair', 'Asha Rao', 'Dev Shah'], $this->names());
+    }
+
+    public function test_newest_sort_orders_by_when_the_creator_joined(): void
+    {
+        foreach (['Ben Lim' => 3, 'Chitra Nair' => 2, 'Asha Rao' => 1, 'Dev Shah' => 0] as $name => $daysAgo) {
+            Influencer::where('name', $name)->update(['created_at' => now()->subDays($daysAgo)]);
+        }
+
+        // Newest first by default, oldest first when asked.
+        $this->assertSame(['Dev Shah', 'Asha Rao', 'Chitra Nair', 'Ben Lim'], $this->names('?sort=newest'));
+        $this->assertSame(['Ben Lim', 'Chitra Nair', 'Asha Rao', 'Dev Shah'], $this->names('?sort=newest&direction=asc'));
+    }
+
+    public function test_registered_filter_keeps_only_creators_who_signed_up(): void
+    {
+        Influencer::where('name', 'Chitra Nair')->update(['user_id' => User::factory()->create()->id]);
+
+        $this->assertSame(['Chitra Nair'], $this->names('?registered=1'));
+        $this->assertSame(['Ben Lim', 'Chitra Nair', 'Asha Rao', 'Dev Shah'], $this->names('?registered=0'));
+        $this->getJson('/api/v1/influencers?registered=maybe')->assertUnprocessable()->assertJsonValidationErrors('registered');
     }
 
     public function test_keyword_matches_name_username_and_bio(): void

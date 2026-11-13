@@ -47,9 +47,18 @@ class DatabaseInfluencerSearch implements InfluencerSearch
             $query->where('social_profiles.is_verified', (bool) $filters['verified']);
         }
 
+        // Only creators who signed up themselves, not imported or sample records.
+        if (filter_var($filters['registered'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            $query->whereNotNull('influencers.user_id');
+        }
+
         $sort = in_array($filters['sort'] ?? null, self::SORTS, true) ? $filters['sort'] : 'followers';
         $direction = ($filters['direction'] ?? null) === 'asc' ? 'asc' : 'desc';
-        $column = $sort === 'name' ? 'influencers.name' : 'social_profiles.'.$sort;
+        $column = match ($sort) {
+            'name' => 'influencers.name',
+            'newest' => 'influencers.created_at',
+            default => 'social_profiles.'.$sort,
+        };
 
         if ($sort === 'name' && ! isset($filters['direction'])) {
             $direction = 'asc';

@@ -138,6 +138,7 @@ export interface InfluencerQuery {
   engagement_min?: string;
   engagement_max?: string;
   verified?: string;
+  registered?: string;
   sort?: string;
   direction?: string;
   page?: string;

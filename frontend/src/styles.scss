@@ -681,3 +681,8 @@ tr.is-selected td { background: #fff5f8; }
   .creator-card:hover { transform: none; }
   .sk { animation: none; }
 }
+
+// "Registered creators" toggle sits after a thin divider at the end of the platform chips.
+.chips__sep { align-self: stretch; width: 1px; background: var(--line); margin: 0.25rem 0.125rem; }
+.chip--registered svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.chip--registered.is-on { background: var(--action); border-color: var(--action); }

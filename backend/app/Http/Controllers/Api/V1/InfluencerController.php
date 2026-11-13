@@ -28,6 +28,7 @@ class InfluencerController extends Controller
             'engagement_min' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'engagement_max' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'verified' => ['nullable', 'boolean'],
+            'registered' => ['nullable', 'boolean'],
             'sort' => ['nullable', Rule::in(InfluencerSearch::SORTS)],
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
