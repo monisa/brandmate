@@ -5,9 +5,11 @@ use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CreatorController;
+use App\Http\Controllers\Api\V1\CreatorDashboardController;
 use App\Http\Controllers\Api\V1\CreatorRequestController;
 use App\Http\Controllers\Api\V1\InfluencerController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\RequestController;
 use App\Http\Controllers\Api\V1\ShortlistController;
 use App\Http\Controllers\Api\V1\SocialAuthController;
@@ -58,6 +60,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('profile', [AuthController::class, 'updateProfile']);
         Route::get('sessions', [AuthController::class, 'sessions']);
         Route::delete('sessions/{id}', [AuthController::class, 'revokeSession'])->whereNumber('id');
+    });
+
+    // ---- In-app notifications (any signed-in, verified person) ----
+    Route::middleware('verified')->prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::post('read-all', [NotificationController::class, 'readAll']);
+        Route::post('{id}/read', [NotificationController::class, 'read'])->whereUuid('id');
     });
 
     // ---- Company workspace ----
@@ -114,6 +123,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ---- Creator workspace (creators manage only their own profile) ----
     Route::prefix('creator')->middleware(['verified', 'creator'])->group(function () {
+        Route::get('dashboard', [CreatorDashboardController::class, 'show']);
         Route::get('profile', [CreatorController::class, 'show']);
         Route::put('profile', [CreatorController::class, 'update']);
         Route::put('listing', [CreatorController::class, 'setListing']);
@@ -138,6 +148,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('creators', [AdminController::class, 'creatorList']);
         Route::post('creators/{id}/review', [AdminController::class, 'reviewCreator'])->whereNumber('id');
         Route::get('users', [AdminController::class, 'users']);
+        Route::post('users/bulk-delete', [AdminController::class, 'bulkDeleteUsers']);
+        Route::post('companies/bulk-delete', [AdminController::class, 'bulkDeleteCompanies']);
+        Route::post('creators/bulk-delete', [AdminController::class, 'bulkDeleteCreators']);
         Route::get('audit-logs', [AdminController::class, 'auditLogs']);
     });
 });

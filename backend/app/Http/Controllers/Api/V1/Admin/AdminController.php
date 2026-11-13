@@ -2,17 +2,20 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Domain\Admin\AccountRemoval;
 use App\Domain\Approvals\ApprovalStatus;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Companies\CompanyScope;
 use App\Domain\Companies\Models\Company;
+use App\Domain\Companies\Models\Membership;
 use App\Domain\Influencers\Models\Influencer;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AuditLogResource;
 use App\Http\Resources\CompanyResource;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Notifications\InAppNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -72,6 +75,10 @@ class AdminController extends Controller
         $this->applyReview($company, $data, $request);
         $audit->log('admin.company_reviewed', $company, $data, companyId: $company->id);
 
+        // Everyone in the company is told, and the dashboard shows the note.
+        Membership::withoutGlobalScope(CompanyScope::class)->where('company_id', $company->id)->with('user')->get()
+            ->each(fn (Membership $m) => $m->user?->notify(new InAppNotification('company.'.$data['decision'], ['note' => $data['note'] ?? null], '/dashboard')));
+
         return new CompanyResource($company->loadCount('memberships')->load('owner'));
     }
 
@@ -100,8 +107,41 @@ class AdminController extends Controller
         $creator = $this->creators()->with(['user', 'profiles'])->findOrFail($id);
         $this->applyReview($creator, $data, $request);
         $audit->log('admin.creator_reviewed', $creator, $data);
+        $creator->user?->notify(new InAppNotification('creator.'.$data['decision'], ['note' => $data['note'] ?? null], '/creator/profile'));
 
         return response()->json(['data' => $this->creatorArray($creator)]);
+    }
+
+    // ---- Delete several rows at once (permanent) ----
+
+    /** Deletes users, with a creator's profile and any company left with no members. Never a super admin or yourself. */
+    public function bulkDeleteUsers(Request $request, AccountRemoval $removal, AuditLogger $audit): JsonResponse
+    {
+        $ids = $this->validateIds($request);
+        $result = $removal->deleteUsers($ids, $request->user());
+        $audit->log('admin.users_deleted', null, ['ids' => $ids] + $result);
+
+        return response()->json(['data' => $result]);
+    }
+
+    /** Deletes companies and the people who belong to them. */
+    public function bulkDeleteCompanies(Request $request, AccountRemoval $removal, AuditLogger $audit): JsonResponse
+    {
+        $ids = $this->validateIds($request);
+        $result = $removal->deleteCompanies($ids, $request->user());
+        $audit->log('admin.companies_deleted', null, ['ids' => $ids] + $result);
+
+        return response()->json(['data' => $result]);
+    }
+
+    /** Deletes creators who signed up themselves, with their login. */
+    public function bulkDeleteCreators(Request $request, AccountRemoval $removal, AuditLogger $audit): JsonResponse
+    {
+        $ids = $this->validateIds($request);
+        $result = $removal->deleteCreators($ids, $request->user());
+        $audit->log('admin.creators_deleted', null, ['ids' => $ids] + $result);
+
+        return response()->json(['data' => $result]);
     }
 
     public function users(Request $request): AnonymousResourceCollection
@@ -125,6 +165,17 @@ class AdminController extends Controller
             ->paginate($this->perPage($request));
 
         return AuditLogResource::collection($logs);
+    }
+
+    /** @return list<int> */
+    private function validateIds(Request $request): array
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer', 'distinct'],
+        ]);
+
+        return array_map('intval', $data['ids']);
     }
 
     private function creators()

@@ -7,6 +7,7 @@ use App\Domain\Companies\TenantContext;
 use App\Domain\Influencers\Models\Influencer;
 use App\Domain\Requests\Models\CollaborationRequest;
 use App\Http\Controllers\Controller;
+use App\Notifications\InAppNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -68,6 +69,9 @@ class RequestController extends Controller
         ]);
 
         $audit->log('request.sent', $created, ['creator_id' => $creator->id]);
+        $creator->user?->notify(new InAppNotification('request.received', [
+            'company' => $tenant->company()?->name, 'title' => $created->title,
+        ], '/creator/requests'));
 
         return response()->json(['data' => $this->fresh($created)->toApi('brand')], 201);
     }
@@ -83,6 +87,10 @@ class RequestController extends Controller
 
         $found->update(['status' => CollaborationRequest::WITHDRAWN]);
         $audit->log('request.withdrawn', $found);
+        $found->loadMissing('influencer.user');
+        $found->influencer?->user?->notify(new InAppNotification('request.withdrawn', [
+            'company' => app(TenantContext::class)->company()?->name, 'title' => $found->title,
+        ], '/creator/requests'));
 
         return response()->json(['data' => $this->fresh($found)->toApi('brand')]);
     }

@@ -6,6 +6,7 @@ use App\Domain\Audit\AuditLogger;
 use App\Domain\Companies\CompanyScope;
 use App\Domain\Requests\Models\CollaborationRequest;
 use App\Http\Controllers\Controller;
+use App\Notifications\InAppNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -55,6 +56,9 @@ class CreatorRequestController extends Controller
         ])->save();
 
         $audit->log('request.'.$data['decision'], $found, companyId: $found->company_id);
+        $found->requester?->notify(new InAppNotification('request.answered', [
+            'creator' => $request->user()->name, 'title' => $found->title, 'decision' => $data['decision'],
+        ], '/requests'));
 
         return response()->json(['data' => $found->toApi('creator')]);
     }

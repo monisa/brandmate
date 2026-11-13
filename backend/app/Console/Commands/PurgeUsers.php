@@ -58,6 +58,7 @@ class PurgeUsers extends Command
             'social_profiles' => DB::table('social_profiles')->whereIn('influencer_id', $creatorIds),
             'creator_packages' => DB::table('creator_packages')->whereIn('influencer_id', $creatorIds),
             'personal_access_tokens' => DB::table('personal_access_tokens')->where('tokenable_type', $tokenable)->whereIn('tokenable_id', $userIds),
+            'notifications' => DB::table('notifications')->where('notifiable_type', $tokenable)->whereIn('notifiable_id', $userIds),
             'sessions' => DB::table('sessions')->whereIn('user_id', $userIds),
             'password_reset_tokens' => DB::table('password_reset_tokens')->whereIn('email', $emails),
         ];
@@ -85,7 +86,7 @@ class PurgeUsers extends Command
             foreach ([
                 'collaboration_requests', 'shortlist_influencers', 'shortlists', 'invitations', 'company_users', 'roles', 'companies',
                 'creator_packages', 'social_profiles', 'influencers (creator profiles)',
-                'personal_access_tokens', 'sessions', 'password_reset_tokens', 'users',
+                'personal_access_tokens', 'notifications', 'sessions', 'password_reset_tokens', 'users',
             ] as $table) {
                 (clone $plan[$table])->delete();
             }

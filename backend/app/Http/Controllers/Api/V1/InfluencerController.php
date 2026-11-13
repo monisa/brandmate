@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Domain\Influencers\Models\Influencer;
+use App\Domain\Influencers\Models\ProfileView;
 use App\Domain\Influencers\Models\SocialProfile;
 use App\Domain\Search\InfluencerSearch;
 use App\Http\Controllers\Controller;
@@ -48,11 +49,14 @@ class InfluencerController extends Controller
         ]]);
     }
 
-    public function show(int $id): InfluencerResource
+    public function show(Request $request, int $id): InfluencerResource
     {
         $profile = SocialProfile::with(['influencer.profiles', 'influencer.packages'])->findOrFail($id);
 
         abort_unless($profile->influencer->isVisibleToBrands(), 404); // hidden by the creator or not approved yet
+
+        // The creator sees how many brands looked at their profile.
+        ProfileView::record($profile->influencer, (int) $request->user()->membership?->company_id, $request->user()->id);
 
         return new InfluencerResource($profile);
     }
