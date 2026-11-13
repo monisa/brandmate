@@ -4,7 +4,9 @@ import { RouterLink } from '@angular/router';
 import { messageFrom } from '../../core/forms';
 import { CreatorRequest, RequestStatus } from '../../core/models';
 import { Api } from '../../core/services/api';
+import { ChatService } from '../../core/services/chat.service';
 import { TPipe } from '../../core/i18n/t.pipe';
+import { LockNotice } from '../../shared/components/lock-notice';
 import { RequestStatusBadge } from '../../shared/components/request-status-badge';
 
 type Filter = RequestStatus | '';
@@ -12,7 +14,7 @@ type Filter = RequestStatus | '';
 /** Everything brands have asked this creator, with Accept and Decline. */
 @Component({
   selector: 'app-creator-requests',
-  imports: [TPipe, RouterLink, CurrencyPipe, DatePipe, RequestStatusBadge],
+  imports: [TPipe, RouterLink, CurrencyPipe, DatePipe, RequestStatusBadge, LockNotice],
   template: `
     <header class="page-head page-head--row">
       <div>
@@ -41,6 +43,10 @@ type Filter = RequestStatus | '';
       <p class="alert alert--error" role="alert">{{ error() | t }}</p>
     }
 
+    @if (isLocked()) {
+      <app-lock-notice audience="creator" />
+    }
+
     @if (loading()) {
       <p class="muted" role="status">{{ 'Loading requests…' | t }}</p>
     } @else if (requests().length === 0) {
@@ -52,8 +58,8 @@ type Filter = RequestStatus | '';
     } @else {
       <ul class="requests">
         @for (request of requests(); track request.id) {
-          <li class="card request">
-            <div class="request__head">
+          <li class="card request" [class.is-blurred]="request.locked">
+            <div class="request__head" [attr.aria-hidden]="request.locked ? 'true' : null">
               <span class="avatar avatar--light" aria-hidden="true">{{ initials(request.brand.company) }}</span>
               <div class="request__who">
                 <h2>{{ request.title }}</h2>
@@ -82,7 +88,12 @@ type Filter = RequestStatus | '';
               }
             </dl>
 
-            @if (request.status === 'pending') {
+            @if (request.locked) {
+              <div class="request__actions">
+                <button class="btn btn--primary" type="button" disabled [attr.title]="'Subscribe to read and answer requests' | t">{{ 'Answer this request' | t }}</button>
+                <button class="btn" type="button" disabled [attr.title]="'Subscribe to message brands' | t">{{ 'Message' | t }}</button>
+              </div>
+            } @else if (request.status === 'pending') {
               @if (answering() === request.id) {
                 <div class="field">
                   <label [for]="'reply-' + request.id">{{ 'Note to the brand (optional)' | t }}</label>
@@ -110,6 +121,11 @@ type Filter = RequestStatus | '';
                 </p>
               }
             }
+            @if (!request.locked && request.brand.company_id) {
+              <div class="request__actions">
+                <button class="btn" type="button" (click)="message(request.brand.company_id)">{{ 'Message' | t }}</button>
+              </div>
+            }
           </li>
         }
       </ul>
@@ -118,6 +134,7 @@ type Filter = RequestStatus | '';
 })
 export class CreatorRequests implements OnInit {
   private readonly api = inject(Api);
+  private readonly chat = inject(ChatService);
 
   protected readonly requests = signal<CreatorRequest[]>([]);
   protected readonly pending = signal(0);
@@ -126,6 +143,15 @@ export class CreatorRequests implements OnInit {
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly answering = signal<number | null>(null);
+
+  protected isLocked(): boolean {
+    return this.requests().some((r) => r.locked);
+  }
+
+  protected message(companyId: number): void {
+    this.error.set('');
+    this.chat.open({ company_id: companyId }, (message) => this.error.set(message));
+  }
 
   ngOnInit(): void {
     this.load();

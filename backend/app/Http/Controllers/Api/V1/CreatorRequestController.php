@@ -46,6 +46,8 @@ class CreatorRequestController extends Controller
             'response' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        abort_unless(Entitlements::allowsRequest($request), 403, 'Subscribe to read and answer requests.');
+
         $found = $this->inbox($request->user()->creatorProfile->id)->with(['company', 'requester', 'package'])->findOrFail($id);
 
         if ($found->status !== CollaborationRequest::PENDING) {

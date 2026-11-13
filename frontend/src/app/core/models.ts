@@ -273,7 +273,10 @@ export interface BrandRequest extends RequestBase {
 
 /** A request as the creator who received it sees it. */
 export interface CreatorRequest extends RequestBase {
+  /** True when the creator has no subscription: the text is hidden and answering is disabled. */
+  locked?: boolean;
   brand: {
+    company_id?: number | null;
     company: string | null;
     requested_by: string | null;
     /** Only after the creator accepted. */

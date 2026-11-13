@@ -827,3 +827,8 @@ a.fact--link:hover .fact__value { color: var(--action-dark); }
 }
 .chat__composer { display: flex; gap: 0.5rem; align-items: flex-end; margin-top: 0.75rem; textarea { flex: 1; resize: none; } }
 @media (max-width: 760px) { .chat { grid-template-columns: 1fr; } .chat__list { max-height: 14rem; } }
+
+// Locked requests: the text is only a placeholder, and the blur keeps it from being read at a glance.
+.request.is-blurred .request__head,
+.request.is-blurred .request__message,
+.request.is-blurred .request__facts { filter: blur(5px); user-select: none; pointer-events: none; }

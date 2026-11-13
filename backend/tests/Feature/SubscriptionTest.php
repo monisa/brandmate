@@ -373,6 +373,46 @@ class SubscriptionTest extends TestCase
         $this->assertTrue($end->between(now()->addDays(37), now()->addDays(42)), 'a month is added to the days that were left');
     }
 
+    public function test_an_unsubscribed_creator_cannot_read_or_answer_requests_but_a_subscribed_one_can(): void
+    {
+        $creator = $this->creator();
+        $company = $this->createCompany('Acme Foods');
+        $this->subscribe($company);
+        Sanctum::actingAs($this->createMember($company, attributes: ['name' => 'Bo Brand']));
+        $id = $this->postJson('/api/v1/requests', [
+            'creator_id' => $creator->id, 'title' => 'Diwali launch reel', 'message' => 'Secret brief text', 'budget' => 5000,
+        ])->assertCreated()->json('data.id');
+
+        // The creator has not subscribed: the list says a request exists, but not what it says or who sent it.
+        Sanctum::actingAs($creator->user);
+        $row = $this->getJson('/api/v1/creator/requests')->assertOk()->assertJsonCount(1, 'data')->json('data.0');
+        $this->assertTrue($row['locked']);
+        $this->assertSame('XXXxx', $row['title']);
+        $this->assertSame('XXXxx', $row['message']);
+        $this->assertSame('XXXxx', $row['brand']['company']);
+        $this->assertNull($row['brand']['company_id']);
+        $this->assertNull($row['budget']);
+        $this->assertSame('pending', $row['status']);
+        foreach (['Diwali', 'Secret brief', 'Acme Foods', 'Bo Brand'] as $secret) {
+            $this->assertStringNotContainsString($secret, json_encode($row));
+        }
+        // Not even through the notification.
+        $meta = collect($this->getJson('/api/v1/notifications')->assertOk()->json('data'))->firstWhere('kind', 'request.received')['meta'];
+        $this->assertSame('XXXxx', $meta['company']);
+        $this->assertSame('XXXxx', $meta['title']);
+
+        $this->patchJson("/api/v1/creator/requests/{$id}", ['decision' => 'accepted'])->assertForbidden();
+
+        $this->subscribe($creator->user);
+        Sanctum::actingAs(User::findOrFail($creator->user_id));
+        $row = $this->getJson('/api/v1/creator/requests')->assertOk()->json('data.0');
+        $this->assertFalse($row['locked']);
+        $this->assertSame('Diwali launch reel', $row['title']);
+        $this->assertSame('Acme Foods', $row['brand']['company']);
+        $this->assertSame($company->id, $row['brand']['company_id']);
+        $this->patchJson("/api/v1/creator/requests/{$id}", ['decision' => 'accepted'])->assertOk();
+    }
+
     // ---- Webhooks ----
 
     public function test_a_signed_payment_webhook_extends_access_and_a_replay_changes_nothing(): void

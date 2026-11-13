@@ -90,10 +90,21 @@ class CollaborationRequest extends Model
 
         if ($viewer === 'creator') {
             $data['brand'] = [
-                'company' => $this->company?->name,
-                'requested_by' => $this->requester?->name,
+                'company_id' => $unlocked ? $this->company_id : null,
+                'company' => Entitlements::reveal($this->company?->name, $unlocked),
+                'requested_by' => Entitlements::reveal($this->requester?->name, $unlocked),
                 'email' => $accepted ? $this->requester?->email : null,
             ];
+            $data['locked'] = ! $unlocked;
+
+            if (! $unlocked) {
+                // The page blurs these, so the real text must never be sent in the first place.
+                $data['title'] = Entitlements::mask();
+                $data['message'] = Entitlements::mask();
+                $data['budget'] = null;
+                $data['due_date'] = null;
+                $data['package'] = null;
+            }
 
             return $data;
         }
