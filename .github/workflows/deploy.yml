@@ -161,15 +161,28 @@ jobs:
 
       - name: Install dependencies and migrate
         run: |
-          ssh hostinger "set -e
-            cd '$APP_DIR'
-            mkdir -p storage/app storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
-            COMPOSER=\$(command -v composer2 || command -v composer)
-            \$COMPOSER install --no-dev --optimize-autoloader --no-interaction
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache"
+          set +e
+          ssh hostinger bash -s -- "$APP_DIR" > /tmp/install.log 2>&1 <<'REMOTE'
+          set -e
+          cd "$1"
+          echo "php: $(php -r 'echo PHP_VERSION;')"
+          COMPOSER=$(command -v composer2 || command -v composer || true)
+          echo "composer: ${COMPOSER:-not found}"
+          [ -n "$COMPOSER" ] || exit 3
+          mkdir -p storage/app storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+          echo "== composer install"; $COMPOSER install --no-dev --optimize-autoloader --no-interaction
+          echo "== migrate"; php artisan migrate --force
+          echo "== cache"; php artisan config:cache; php artisan route:cache; php artisan view:cache
+          REMOTE
+          status=$?
+          set -e
+          grep -v 'post-quantum\|store now, decrypt later\|openssh.com/pq' /tmp/install.log | tail -40
+          if [ $status -ne 0 ]; then
+            summary=$(grep -E '^(php|composer):|^== ' /tmp/install.log | tr '\n' ' ')
+            last=$(grep -v 'post-quantum\|store now\|openssh.com/pq\|^\s*$' /tmp/install.log | tail -6 | tr '\n' ' ' | cut -c1-900)
+            echo "::error::Install failed (exit $status). $summary... Last output: $last"
+            exit 1
+          fi
 
       # The web root goes last, so the new pages only appear once the API is ready.
       - name: Upload the website
