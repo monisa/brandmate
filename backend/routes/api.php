@@ -5,8 +5,10 @@ use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CreatorController;
+use App\Http\Controllers\Api\V1\CreatorRequestController;
 use App\Http\Controllers\Api\V1\InfluencerController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\RequestController;
 use App\Http\Controllers\Api\V1\ShortlistController;
 use App\Http\Controllers\Api\V1\SocialAuthController;
 use App\Http\Controllers\Api\V1\TeamController;
@@ -76,27 +78,37 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('audit-logs', [AuditLogController::class, 'index'])->middleware('permission:audit.view');
 
-        // Influencer discovery
-        Route::middleware('permission:influencer.search')->group(function () {
-            Route::get('influencers', [InfluencerController::class, 'index']);
-            Route::get('influencers/filters', [InfluencerController::class, 'filters']);
-        });
-        Route::middleware('permission:influencer.view')->group(function () {
-            Route::get('influencers/compare', [InfluencerController::class, 'compare']);
-            Route::get('influencers/{id}', [InfluencerController::class, 'show'])->whereNumber('id');
-            Route::get('shortlists', [ShortlistController::class, 'index']);
-            Route::get('shortlists/{id}', [ShortlistController::class, 'show'])->whereNumber('id');
-        });
+        // Brand features open once the platform team has approved the company.
+        Route::middleware('company.approved')->group(function () {
+            // Influencer discovery
+            Route::middleware('permission:influencer.search')->group(function () {
+                Route::get('influencers', [InfluencerController::class, 'index']);
+                Route::get('influencers/filters', [InfluencerController::class, 'filters']);
+            });
+            Route::middleware('permission:influencer.view')->group(function () {
+                Route::get('influencers/compare', [InfluencerController::class, 'compare']);
+                Route::get('influencers/{id}', [InfluencerController::class, 'show'])->whereNumber('id');
+                Route::get('shortlists', [ShortlistController::class, 'index']);
+                Route::get('shortlists/{id}', [ShortlistController::class, 'show'])->whereNumber('id');
+            });
 
-        Route::middleware('permission:shortlist.manage')->group(function () {
-            Route::post('shortlists', [ShortlistController::class, 'store']);
-            Route::put('shortlists/{id}', [ShortlistController::class, 'update'])->whereNumber('id');
-            Route::delete('shortlists/{id}', [ShortlistController::class, 'destroy'])->whereNumber('id');
-            Route::post('shortlists/{id}/influencers', [ShortlistController::class, 'addInfluencers'])->whereNumber('id');
-            Route::put('shortlists/{id}/influencers/{influencerId}', [ShortlistController::class, 'updateInfluencer'])
-                ->whereNumber(['id', 'influencerId']);
-            Route::delete('shortlists/{id}/influencers/{influencerId}', [ShortlistController::class, 'removeInfluencer'])
-                ->whereNumber(['id', 'influencerId']);
+            Route::middleware('permission:shortlist.manage')->group(function () {
+                Route::post('shortlists', [ShortlistController::class, 'store']);
+                Route::put('shortlists/{id}', [ShortlistController::class, 'update'])->whereNumber('id');
+                Route::delete('shortlists/{id}', [ShortlistController::class, 'destroy'])->whereNumber('id');
+                Route::post('shortlists/{id}/influencers', [ShortlistController::class, 'addInfluencers'])->whereNumber('id');
+                Route::put('shortlists/{id}/influencers/{influencerId}', [ShortlistController::class, 'updateInfluencer'])
+                    ->whereNumber(['id', 'influencerId']);
+                Route::delete('shortlists/{id}/influencers/{influencerId}', [ShortlistController::class, 'removeInfluencer'])
+                    ->whereNumber(['id', 'influencerId']);
+            });
+
+            // Requests to creators
+            Route::middleware('permission:request.manage')->group(function () {
+                Route::get('requests', [RequestController::class, 'index']);
+                Route::post('requests', [RequestController::class, 'store'])->middleware('throttle:20,60'); // no spamming creators
+                Route::delete('requests/{id}', [RequestController::class, 'withdraw'])->whereNumber('id');
+            });
         });
     });
 
@@ -111,6 +123,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('packages', [CreatorController::class, 'storePackage']);
         Route::put('packages/{id}', [CreatorController::class, 'updatePackage'])->whereNumber('id');
         Route::delete('packages/{id}', [CreatorController::class, 'destroyPackage'])->whereNumber('id');
+
+        // Requests from brands
+        Route::get('requests', [CreatorRequestController::class, 'index']);
+        Route::patch('requests/{id}', [CreatorRequestController::class, 'respond'])->whereNumber('id');
     });
 
     // ---- Platform administration ----
@@ -118,6 +134,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('overview', [AdminController::class, 'overview']);
         Route::get('companies', [AdminController::class, 'companies']);
         Route::patch('companies/{id}', [AdminController::class, 'updateCompany'])->whereNumber('id');
+        Route::post('companies/{id}/review', [AdminController::class, 'reviewCompany'])->whereNumber('id');
+        Route::get('creators', [AdminController::class, 'creatorList']);
+        Route::post('creators/{id}/review', [AdminController::class, 'reviewCreator'])->whereNumber('id');
         Route::get('users', [AdminController::class, 'users']);
         Route::get('audit-logs', [AdminController::class, 'auditLogs']);
     });

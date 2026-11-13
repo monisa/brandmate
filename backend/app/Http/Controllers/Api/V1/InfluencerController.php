@@ -43,8 +43,8 @@ class InfluencerController extends Controller
     {
         return response()->json(['data' => [
             'platforms' => SocialProfile::PLATFORMS,
-            'categories' => Influencer::where('status', Influencer::LISTED)->whereNotNull('category')->distinct()->orderBy('category')->pluck('category'),
-            'countries' => Influencer::where('status', Influencer::LISTED)->whereNotNull('country')->distinct()->orderBy('country')->pluck('country'),
+            'categories' => Influencer::visibleToBrands()->whereNotNull('category')->distinct()->orderBy('category')->pluck('category'),
+            'countries' => Influencer::visibleToBrands()->whereNotNull('country')->distinct()->orderBy('country')->pluck('country'),
         ]]);
     }
 
@@ -52,7 +52,7 @@ class InfluencerController extends Controller
     {
         $profile = SocialProfile::with(['influencer.profiles', 'influencer.packages'])->findOrFail($id);
 
-        abort_unless($profile->influencer->isListed(), 404); // hidden by the creator
+        abort_unless($profile->influencer->isVisibleToBrands(), 404); // hidden by the creator or not approved yet
 
         return new InfluencerResource($profile);
     }
@@ -68,7 +68,7 @@ class InfluencerController extends Controller
 
         $ids = array_map('intval', $data['ids']);
         $profiles = SocialProfile::with('influencer')->whereIn('id', $ids)
-            ->whereHas('influencer', fn ($q) => $q->where('status', Influencer::LISTED))
+            ->whereHas('influencer', fn ($q) => $q->visibleToBrands())
             ->get()
             ->sortBy(fn ($p) => array_search($p->id, $ids, true)) // keep the order that was asked for
             ->values();

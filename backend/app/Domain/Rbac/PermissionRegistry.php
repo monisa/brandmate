@@ -19,6 +19,7 @@ class PermissionRegistry
         'influencer.search' => 'Search influencers',
         'influencer.export' => 'Export influencer data',
         'shortlist.manage' => 'Create and edit shortlists',
+        'request.manage' => 'Send and manage requests to creators',
         'campaign.view' => 'View campaigns',
         'campaign.create' => 'Create campaigns',
         'campaign.edit' => 'Edit campaigns',
@@ -41,7 +42,7 @@ class PermissionRegistry
             'name' => 'Team Member',
             'description' => 'Discovers influencers and works on campaigns',
             'permissions' => [
-                'influencer.view', 'influencer.search', 'shortlist.manage',
+                'influencer.view', 'influencer.search', 'shortlist.manage', 'request.manage',
                 'campaign.view', 'campaign.create', 'campaign.edit', 'analytics.view',
             ],
         ],

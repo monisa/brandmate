@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Approvals\ApprovalStatus;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Companies\Models\Company;
 use App\Domain\Companies\Models\Membership;
@@ -38,10 +39,13 @@ class AuthController extends Controller
                 'password' => $data['password'],
             ]);
 
-            $company = Company::create([
+            // New brands wait for the platform team to approve them.
+            $company = new Company([
                 'name' => $data['company_name'],
                 'slug' => Company::uniqueSlug($data['company_name']),
             ]);
+            $company->approval_status = ApprovalStatus::PENDING;
+            $company->save();
 
             Membership::create([
                 'company_id' => $company->id,
@@ -77,6 +81,7 @@ class AuthController extends Controller
 
             // Hidden until the creator completes it and chooses to be listed.
             $profile = new Influencer(['name' => $data['name'], 'status' => Influencer::HIDDEN]);
+            $profile->approval_status = ApprovalStatus::PENDING; // the platform team reviews it before brands can see it
             $profile->user()->associate($user);
             $profile->save();
 

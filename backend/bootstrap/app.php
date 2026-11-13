@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureCompanyApproved;
 use App\Http\Middleware\EnsureCreator;
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\EnsureSuperAdmin;
@@ -30,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => EnsurePermission::class,
             'super_admin' => EnsureSuperAdmin::class,
             'creator' => EnsureCreator::class,
+            'company.approved' => EnsureCompanyApproved::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Search;
 
+use App\Domain\Approvals\ApprovalStatus;
 use App\Domain\Influencers\Models\Influencer;
 use App\Domain\Influencers\Models\SocialProfile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -13,7 +14,9 @@ class DatabaseInfluencerSearch implements InfluencerSearch
         $query = SocialProfile::query()
             ->select('social_profiles.*')
             ->join('influencers', 'influencers.id', '=', 'social_profiles.influencer_id')
-            ->where('influencers.status', Influencer::LISTED) // creators choose when they are visible
+            // Creators choose when they are visible, and the platform team must have approved them.
+            ->where('influencers.status', Influencer::LISTED)
+            ->where('influencers.approval_status', ApprovalStatus::APPROVED)
             ->with('influencer');
 
         if (filled($filters['q'] ?? null)) {

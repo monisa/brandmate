@@ -50,6 +50,8 @@ class PurgeUsers extends Command
             'company_users' => DB::table('company_users')->where(fn ($q) => $q->whereIn('company_id', $companyIds)->orWhereIn('user_id', $userIds)),
             'invitations' => DB::table('invitations')->whereIn('company_id', $companyIds),
             'roles' => DB::table('roles')->whereIn('company_id', $companyIds),
+            'collaboration_requests' => DB::table('collaboration_requests')
+                ->where(fn ($q) => $q->whereIn('company_id', $companyIds)->orWhereIn('influencer_id', $creatorIds)),
             'shortlists' => DB::table('shortlists')->whereIn('id', $shortlistIds),
             'shortlist_influencers' => DB::table('shortlist_influencers')->whereIn('shortlist_id', $shortlistIds),
             'influencers (creator profiles)' => DB::table('influencers')->whereIn('id', $creatorIds),
@@ -81,7 +83,7 @@ class PurgeUsers extends Command
         DB::transaction(function () use ($plan, $counts) {
             // Children before parents: memberships restrict deleting their roles.
             foreach ([
-                'shortlist_influencers', 'shortlists', 'invitations', 'company_users', 'roles', 'companies',
+                'collaboration_requests', 'shortlist_influencers', 'shortlists', 'invitations', 'company_users', 'roles', 'companies',
                 'creator_packages', 'social_profiles', 'influencers (creator profiles)',
                 'personal_access_tokens', 'sessions', 'password_reset_tokens', 'users',
             ] as $table) {

@@ -23,6 +23,8 @@ class UserResource extends JsonResource
                 'id' => $membership->company->id,
                 'name' => $membership->company->name,
                 'slug' => $membership->company->slug,
+                'approval_status' => $membership->company->approval_status,
+                'review_note' => $membership->company->review_note,
             ] : null,
             'role' => $membership?->role ? [
                 'id' => $membership->role->id,

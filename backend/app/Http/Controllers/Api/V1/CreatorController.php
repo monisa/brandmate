@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Domain\Audit\AuditLogger;
+use App\Domain\Companies\CompanyScope;
 use App\Domain\Influencers\Models\Influencer;
 use App\Domain\Influencers\Models\SocialProfile;
+use App\Domain\Requests\Models\CollaborationRequest;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -210,6 +212,11 @@ class CreatorController extends Controller
             'city' => $creator->city,
             'language' => $creator->language,
             'listed' => $creator->isListed(),
+            // Brands see the profile only when it is listed AND approved by the platform team.
+            'approval_status' => $creator->approval_status,
+            'review_note' => $creator->review_note,
+            'pending_requests' => CollaborationRequest::withoutGlobalScope(CompanyScope::class)
+                ->where('influencer_id', $creator->id)->where('status', CollaborationRequest::PENDING)->count(),
             'missing_for_listing' => $creator->missingForListing(),
             'category_options' => config('platform.categories'),
             'currency' => config('platform.currency'),
