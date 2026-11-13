@@ -1,9 +1,12 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { Influencer } from '../../core/models';
 import { Api } from '../../core/services/api';
+import { ChatService } from '../../core/services/chat.service';
+import { LockNotice } from '../../shared/components/lock-notice';
 import { MetricPipe } from '../../shared/pipes/metric.pipe';
 import { RequestForm } from '../requests/request-form';
 import { ShortlistPicker } from '../shortlists/shortlist-picker';
@@ -15,12 +18,15 @@ import { TPipe } from '../../core/i18n/t.pipe';
 
 @Component({
   selector: 'app-influencer-profile',
-  imports: [TPipe, RouterLink, CurrencyPipe, DatePipe, MetricPipe, ShortlistPicker, InfluencerAvatar, PlatformIcon, RequestForm],
+  imports: [TPipe, RouterLink, CurrencyPipe, DatePipe, MetricPipe, ShortlistPicker, InfluencerAvatar, PlatformIcon, RequestForm, LockNotice],
   template: `
     <p class="crumbs"><a routerLink="/influencers">{{ 'Find influencers' | t }}</a> / {{ influencer()?.name ?? ('Profile' | t) }}</p>
 
     @if (loading()) {
       <p class="muted" role="status">{{ 'Loading profile…' | t }}</p>
+    } @else if (paywall()) {
+      <app-lock-notice audience="brand" />
+      <a class="btn" routerLink="/influencers">{{ 'Back to search' | t }}</a>
     } @else if (!influencer()) {
       <div class="card empty">
         <p><strong>{{ 'This influencer could not be found.' | t }}</strong></p>
@@ -81,6 +87,9 @@ import { TPipe } from '../../core/i18n/t.pipe';
               {{ 'Compare {count}' | t: { count: compare.count() } }}
             </a>
           }
+          @if (canChat && i.creator_id) {
+            <button class="btn" type="button" (click)="message(i.creator_id)">{{ 'Message' | t }}</button>
+          }
           @if (i.profile_url) {
             <a class="btn" [href]="i.profile_url" target="_blank" rel="noopener noreferrer">
               {{ i.data_source === 'sample' ? ('Open sample link' | t) : ('View on {platform}' | t: { platform: platformLabels[i.platform] }) }}
@@ -88,6 +97,21 @@ import { TPipe } from '../../core/i18n/t.pipe';
           }
         </div>
       </header>
+
+      @if (chatError()) {
+        <p class="alert alert--error" role="alert">{{ chatError() | t }}</p>
+      }
+
+      @if (i.contact; as contact) {
+        <section class="card" [attr.aria-label]="'Contact details' | t">
+          <h2>{{ 'Contact details' | t }}</h2>
+          <dl class="details">
+            <dt>{{ 'Channel name' | t }}</dt><dd>{{ i.name }}</dd>
+            <dt>{{ 'Email' | t }}</dt><dd>{{ contact.email ?? ('Not shared' | t) }}</dd>
+            <dt>{{ 'Phone' | t }}</dt><dd>{{ contact.phone ?? ('Not shared' | t) }}</dd>
+          </dl>
+        </section>
+      }
 
       @if (i.data_source === 'sample') {
         <p class="alert alert--info">{{ 'This is a sample influencer for trying the product. The person and numbers are fictional.' | t }}</p>
@@ -193,6 +217,16 @@ export class InfluencerProfile {
 
   protected readonly canShortlist = inject(AuthService).can('shortlist.manage');
   protected readonly canRequest = inject(AuthService).can('request.manage');
+  private readonly chat = inject(ChatService);
+  protected readonly canChat = this.chat.canChat();
+  protected readonly chatError = signal('');
+  /** True when the server refused the profile because the company has no subscription. */
+  protected readonly paywall = signal(false);
+
+  protected message(creatorId: number): void {
+    this.chatError.set('');
+    this.chat.open({ creator_id: creatorId }, (message) => this.chatError.set(message));
+  }
 
   protected toRequestForm(): void {
     document.getElementById('request')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -211,12 +245,15 @@ export class InfluencerProfile {
     effect((onCleanup) => {
       const id = Number(this.id());
       this.loading.set(true);
+      this.paywall.set(false);
       const request = this.api.influencer(id).subscribe({
         next: (influencer) => {
           this.influencer.set(influencer);
           this.loading.set(false);
         },
-        error: () => {
+        error: (err: unknown) => {
+          const code = err instanceof HttpErrorResponse ? (err.error as { code?: string } | null)?.code : null;
+          this.paywall.set(code === 'subscription_required');
           this.influencer.set(null);
           this.loading.set(false);
         },

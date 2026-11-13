@@ -1,7 +1,8 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../core/auth/auth.service';
+import { ChatService } from '../core/services/chat.service';
 import { LanguageSwitcher } from '../shared/components/language-switcher';
 import { TPipe } from '../core/i18n/t.pipe';
 import { Logo } from '../shared/components/logo';
@@ -38,6 +39,19 @@ import { Logo } from '../shared/components/logo';
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z" /></svg>
               {{ 'Requests' | t }}
             </a>
+            <a routerLink="/creator/brands" routerLinkActive="is-active">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>
+              {{ 'Brands' | t }}
+            </a>
+            <a routerLink="/messages" routerLinkActive="is-active">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z" /></svg>
+              {{ 'Messages' | t }}
+              @if (chat.unread() > 0) { <span class="badge badge--count">{{ chat.unread() }}</span> }
+            </a>
+            <a routerLink="/billing" routerLinkActive="is-active">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18" /></svg>
+              {{ 'Subscription' | t }}
+            </a>
           } @else {
             <a routerLink="/dashboard" routerLinkActive="is-active">
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
@@ -64,8 +78,17 @@ import { Logo } from '../shared/components/logo';
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z" /></svg>
                   {{ 'Requests' | t }}
                 </a>
+                <a routerLink="/messages" routerLinkActive="is-active">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z" /></svg>
+              {{ 'Messages' | t }}
+              @if (chat.unread() > 0) { <span class="badge badge--count">{{ chat.unread() }}</span> }
+            </a>
               }
             }
+            <a routerLink="/billing" routerLinkActive="is-active">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18" /></svg>
+              {{ 'Subscription' | t }}
+            </a>
             <a routerLink="/team" routerLinkActive="is-active">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6" /></svg>
               {{ 'Team' | t }}
@@ -99,11 +122,20 @@ import { Logo } from '../shared/components/logo';
     </div>
   `,
 })
-export class Shell {
+export class Shell implements OnInit, OnDestroy {
   protected readonly auth = inject(AuthService);
+  protected readonly chat = inject(ChatService);
   protected readonly user = this.auth.user;
   protected readonly appName = environment.appName;
   protected readonly open = signal(false);
+
+  ngOnInit(): void {
+    this.chat.watch();
+  }
+
+  ngOnDestroy(): void {
+    this.chat.stop();
+  }
 
   protected readonly initials = computed(() =>
     (this.user()?.name ?? '')

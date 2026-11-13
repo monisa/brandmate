@@ -36,6 +36,25 @@ import { TPipe } from '../../core/i18n/t.pipe';
             <app-field-error [control]="form.controls.website" />
           </div>
           <div class="field">
+            <label for="phone">{{ 'Phone' | t }}</label>
+            <input id="phone" type="tel" formControlName="phone" autocomplete="tel" />
+            <app-field-error [control]="form.controls.phone" />
+          </div>
+          <div class="field">
+            <label for="channel_name">{{ 'Channel name' | t }}</label>
+            <input id="channel_name" type="text" formControlName="channel_name" maxlength="120" />
+            <app-field-error [control]="form.controls.channel_name" />
+          </div>
+          <div class="field">
+            <label for="industry">{{ 'Industry' | t }}</label>
+            <select id="industry" formControlName="industry">
+              <option value="">{{ 'Not set' | t }}</option>
+              @for (item of industries; track item) {
+                <option [value]="item">{{ item | t }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
             <label for="country">{{ 'Country code' | t }}</label>
             <input id="country" type="text" formControlName="country" maxlength="2" aria-describedby="country-hint" />
             <p class="field-hint" id="country-hint">{{ 'Two letters, for example IN, US or GB.' | t }}</p>
@@ -69,10 +88,17 @@ export class CompanySettings implements OnInit {
   protected readonly notice = signal('');
   protected readonly error = signal('');
 
+  protected readonly industries = [
+    'Beauty & personal care', 'Education', 'Entertainment', 'Fashion & apparel', 'Finance', 'Food & beverage',
+    'Health & fitness', 'Home & lifestyle', 'Retail & e-commerce', 'Technology', 'Travel & hospitality', 'Other',
+  ];
   protected readonly form = inject(NonNullableFormBuilder).group({
     name: ['', Validators.required],
     website: [''],
     country: [''],
+    phone: [''],
+    channel_name: [''],
+    industry: [''],
     timezone: ['UTC', Validators.required],
   });
 
@@ -86,6 +112,9 @@ export class CompanySettings implements OnInit {
           name: company.name,
           website: company.website ?? '',
           country: company.country ?? '',
+          phone: company.phone ?? '',
+          channel_name: company.channel_name ?? '',
+          industry: company.industry ?? '',
           timezone: company.timezone,
         });
         this.loading.set(false);
@@ -113,6 +142,9 @@ export class CompanySettings implements OnInit {
         website: value.website || null,
         country: value.country ? value.country.toUpperCase() : null,
         timezone: value.timezone,
+        phone: value.phone || null,
+        channel_name: value.channel_name || null,
+        industry: value.industry || null,
       })
       .subscribe({
         next: () => {

@@ -62,6 +62,9 @@ export interface Company {
   website: string | null;
   country: string | null;
   timezone: string;
+  phone?: string | null;
+  channel_name?: string | null;
+  industry?: string | null;
   status: 'active' | 'suspended';
   approval_status: ApprovalStatus;
   review_note: string | null;
@@ -139,6 +142,9 @@ export interface Influencer {
   avg_comments: number | null;
   avg_views: number | null;
   is_registered_creator: boolean;
+  /** True when the viewer has no subscription: the channel name and contact details below are masked. */
+  locked?: boolean;
+  contact?: { email: string | null; phone: string | null };
   packages?: CreatorPackage[];
   data_source: string;
   provider: string;
@@ -217,6 +223,8 @@ export interface CreatorProfile {
   state: string | null;
   city: string | null;
   language: string | null;
+  phone?: string | null;
+  email?: string | null;
   listed: boolean;
   approval_status: ApprovalStatus;
   review_note: string | null;
@@ -324,4 +332,85 @@ export interface BulkDeleteResult {
   companies?: number;
   creators?: number;
   skipped: number;
+}
+
+/** Rs 999 + GST a month. Amounts are in whole rupees. */
+export interface SubscriptionPlan {
+  price: number;
+  gst_percent: number;
+  gst: number;
+  total: number;
+  currency: string;
+  interval: 'month';
+}
+
+export interface SubscriptionInvoice {
+  id: number;
+  invoice_number: string | null;
+  paid_at: string;
+  price: number;
+  gst: number;
+  total: number;
+  currency: string;
+  status: string;
+}
+
+export interface SubscriptionSummary {
+  /** False while the platform is not charging yet: nothing is locked. */
+  enforced: boolean;
+  /** Whether this person can see contact details right now. */
+  active: boolean;
+  status: 'none' | 'created' | 'active' | 'past_due' | 'cancelled' | 'expired';
+  gateway: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  can_manage: boolean;
+  /** False until Razorpay keys are set on the server. */
+  payments_ready: boolean;
+  plan: SubscriptionPlan;
+  payments: SubscriptionInvoice[];
+}
+
+export interface CheckoutDetails {
+  key_id: string;
+  subscription_id: string;
+  name: string;
+  description: string;
+  prefill: { name: string; email: string; contact: string | null };
+}
+
+/** A brand as a creator sees it. Contact details are masked until the creator subscribes. */
+export interface BrandCard {
+  id: number;
+  name: string;
+  industry: string | null;
+  country: string | null;
+  locked: boolean;
+  contact: { email: string | null; phone: string | null; channel_name: string | null; website: string | null };
+}
+
+export interface BrandFilterOptions {
+  industries: string[];
+  countries: string[];
+}
+
+export interface Conversation {
+  id: number;
+  counterpart: { kind: 'creator' | 'brand'; id: number; name: string; avatar_url: string | null };
+  unread_count: number;
+  last_message: { body: string; from_me: boolean } | null;
+  last_message_at: string | null;
+}
+
+export interface ChatMessage {
+  id: number;
+  body: string;
+  from_me: boolean;
+  sender: string | null;
+  created_at: string;
+}
+
+export interface ChatMessages {
+  data: ChatMessage[];
+  meta: { can_send: boolean; reason: 'subscription_required' | 'counterpart_not_subscribed' | null };
 }

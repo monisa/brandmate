@@ -34,6 +34,9 @@ export const routes: Routes = [
         canActivate: [creatorGuard],
         loadComponent: () => import('./features/requests/creator-requests').then((m) => m.CreatorRequests),
       },
+      { path: 'creator/brands', canActivate: [creatorGuard], loadComponent: () => import('./features/brands/brands').then((m) => m.Brands) },
+      { path: 'messages', loadComponent: () => import('./features/messages/messages').then((m) => m.Messages) },
+      { path: 'billing', loadComponent: () => import('./features/billing/billing').then((m) => m.Billing) },
       { path: 'dashboard', canActivate: [brandHomeGuard], loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.Dashboard) },
       {
         path: 'influencers',

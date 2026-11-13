@@ -107,6 +107,12 @@ const LINK_EXAMPLES: Record<Platform, string> = {
             <p class="field-hint" id="c-bio-hint">{{ 'What you make and who watches it.' | t }}</p>
             <app-field-error [control]="profileForm.controls.bio" />
           </div>
+          <div class="field">
+            <label for="c-phone">{{ 'Phone' | t }}</label>
+            <input id="c-phone" type="tel" formControlName="phone" autocomplete="tel" aria-describedby="c-phone-hint" />
+            <p class="field-hint" id="c-phone-hint">{{ 'Only subscribed brands can see this.' | t }}</p>
+            <app-field-error [control]="profileForm.controls.phone" />
+          </div>
           <div class="field-pair">
             <div class="field">
               <label for="c-country">{{ 'Country code' | t }}</label>
@@ -302,6 +308,7 @@ export class CreatorHome implements OnInit {
     category: [''],
     bio: [''],
     country: [''],
+    phone: [''],
     state: [''],
     city: [''],
     language: [''],
@@ -341,6 +348,7 @@ export class CreatorHome implements OnInit {
           category: profile.category ?? '',
           bio: profile.bio ?? '',
           country: profile.country ?? '',
+          phone: profile.phone ?? '',
           state: profile.state ?? '',
           city: profile.city ?? '',
           language: profile.language ?? '',
@@ -367,6 +375,7 @@ export class CreatorHome implements OnInit {
         category: v.category || null,
         bio: v.bio || null,
         country: v.country ? v.country.toUpperCase() : null,
+        phone: v.phone || null,
         state: v.state || null,
         city: v.city || null,
         language: v.language || null,

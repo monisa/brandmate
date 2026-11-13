@@ -3,7 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
-  AdminCreator, AdminOverview, AppNotification, ApprovalStatus, BrandRequest, BulkDeleteResult, Company, CreatorDashboard, CreatorRequest, DeviceSession, FilterOptions, Influencer,
+  AdminCreator, AdminOverview, AppNotification, ApprovalStatus, BrandCard, BrandFilterOptions, BrandRequest, BulkDeleteResult, ChatMessage, ChatMessages,
+  CheckoutDetails, Company, Conversation, CreatorDashboard, CreatorRequest, SubscriptionSummary, DeviceSession, FilterOptions, Influencer,
   InfluencerQuery, Invitation, InvitationPreview, Item, RequestInput, RequestStatus,
   CreatorAccountInput, CreatorPackageInput, CreatorProfile, Member, Paginated, Role, Shortlist, User,
 } from '../models';
@@ -54,7 +55,7 @@ export class Api {
     return this.http.get<Item<Company>>(`${this.base}/company`).pipe(map((r) => r.data));
   }
 
-  updateCompany(body: Pick<Company, 'name' | 'website' | 'country' | 'timezone'>): Observable<Company> {
+  updateCompany(body: Pick<Company, 'name' | 'website' | 'country' | 'timezone' | 'phone' | 'channel_name' | 'industry'>): Observable<Company> {
     return this.http.put<Item<Company>>(`${this.base}/company`, body).pipe(map((r) => r.data));
   }
 
@@ -163,7 +164,7 @@ export class Api {
   }
 
   updateCreatorProfile(
-    body: Pick<CreatorProfile, 'name' | 'category' | 'bio' | 'country' | 'state' | 'city' | 'language'>,
+    body: Pick<CreatorProfile, 'name' | 'category' | 'bio' | 'country' | 'state' | 'city' | 'language' | 'phone'>,
   ): Observable<CreatorProfile> {
     return this.http.put<Item<CreatorProfile>>(`${this.base}/creator/profile`, body).pipe(map((r) => r.data));
   }
@@ -283,5 +284,62 @@ export class Api {
   /** Permanently deletes several rows at once. Super admin only; the server never deletes super admins or the caller. */
   adminBulkDelete(type: 'users' | 'companies' | 'creators', ids: number[]): Observable<BulkDeleteResult> {
     return this.http.post<Item<BulkDeleteResult>>(`${this.base}/admin/${type}/bulk-delete`, { ids }).pipe(map((r) => r.data));
+  }
+
+  // ---- Subscription: Rs 999 + GST a month ----
+  subscription(): Observable<SubscriptionSummary> {
+    return this.http.get<Item<SubscriptionSummary>>(`${this.base}/subscription`).pipe(map((r) => r.data));
+  }
+
+  startCheckout(): Observable<CheckoutDetails> {
+    return this.http.post<Item<CheckoutDetails>>(`${this.base}/subscription/checkout`, {}).pipe(map((r) => r.data));
+  }
+
+  confirmPayment(payload: { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string }): Observable<SubscriptionSummary> {
+    return this.http.post<Item<SubscriptionSummary>>(`${this.base}/subscription/confirm`, payload).pipe(map((r) => r.data));
+  }
+
+  cancelSubscription(): Observable<SubscriptionSummary> {
+    return this.http.post<Item<SubscriptionSummary>>(`${this.base}/subscription/cancel`, {}).pipe(map((r) => r.data));
+  }
+
+  // ---- Brands, as a creator sees them ----
+  brands(query: { q?: string; industry?: string; country?: string; sort?: string; page?: string }): Observable<Paginated<BrandCard>> {
+    const params: Record<string, string> = { per_page: '18' };
+    for (const [key, value] of Object.entries(query)) {
+      if (value) {
+        params[key] = value;
+      }
+    }
+    return this.http.get<Paginated<BrandCard>>(`${this.base}/creator/brands`, { params });
+  }
+
+  brandFilters(): Observable<BrandFilterOptions> {
+    return this.http.get<Item<BrandFilterOptions>>(`${this.base}/creator/brands/filters`).pipe(map((r) => r.data));
+  }
+
+  brand(id: number): Observable<BrandCard> {
+    return this.http.get<Item<BrandCard>>(`${this.base}/creator/brands/${id}`).pipe(map((r) => r.data));
+  }
+
+  // ---- Chat ----
+  conversations(): Observable<{ data: Conversation[]; unread_total: number }> {
+    return this.http.get<{ data: Conversation[]; unread_total: number }>(`${this.base}/chat/conversations`);
+  }
+
+  chatUnread(): Observable<{ unread_total: number }> {
+    return this.http.get<{ unread_total: number }>(`${this.base}/chat/unread`);
+  }
+
+  startChat(target: { creator_id: number } | { company_id: number }): Observable<Conversation> {
+    return this.http.post<Item<Conversation>>(`${this.base}/chat/conversations`, target).pipe(map((r) => r.data));
+  }
+
+  chatMessages(id: number, after = 0): Observable<ChatMessages> {
+    return this.http.get<ChatMessages>(`${this.base}/chat/conversations/${id}/messages`, { params: after ? { after } : {} });
+  }
+
+  sendChatMessage(id: number, body: string): Observable<ChatMessage> {
+    return this.http.post<Item<ChatMessage>>(`${this.base}/chat/conversations/${id}/messages`, { body }).pipe(map((r) => r.data));
   }
 }

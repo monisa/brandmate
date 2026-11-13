@@ -12,6 +12,7 @@ import { COMPARE_LIMIT, CompareSelection } from './compare-selection';
 import { PLATFORM_LABELS, countryName, coverOf, locationOf } from './labels';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { InfluencerAvatar } from '../../shared/components/influencer-avatar';
+import { LockNotice } from '../../shared/components/lock-notice';
 import { PlatformIcon } from '../../shared/components/platform-icon';
 
 const VIEW_KEY = 'brandmate.discover.view';
@@ -44,7 +45,7 @@ const EXTRA_FILTERS = ['country', 'followers_min', 'followers_max', 'engagement_
 
 @Component({
   selector: 'app-influencer-search',
-  imports: [TPipe, ReactiveFormsModule, RouterLink, MetricPipe, ShortlistPicker, InfluencerAvatar, PlatformIcon],
+  imports: [TPipe, ReactiveFormsModule, RouterLink, MetricPipe, ShortlistPicker, InfluencerAvatar, PlatformIcon, LockNotice],
   template: `
     <header class="page-head discover-head">
       <div>
@@ -188,6 +189,10 @@ const EXTRA_FILTERS = ['country', 'followers_min', 'followers_max', 'engagement_
         </div>
       </div>
 
+      @if (isLocked()) {
+        <app-lock-notice audience="brand" />
+      }
+
       @if (isSample()) {
         <p class="alert alert--info">{{ 'These are sample influencers for trying the product. They are fictional.' | t }}</p>
       }
@@ -236,13 +241,23 @@ const EXTRA_FILTERS = ['country', 'followers_min', 'followers_max', 'engagement_
                 </label>
               </div>
 
-              <a class="creator-card__photo" [routerLink]="['/influencers', influencer.id]" tabindex="-1" aria-hidden="true">
-                <app-influencer-avatar [name]="influencer.name" [src]="influencer.avatar_url" [platform]="influencer.platform" size="xl" />
-              </a>
+              @if (influencer.locked) {
+                <span class="creator-card__photo">
+                  <app-influencer-avatar [name]="influencer.name" [src]="influencer.avatar_url" [platform]="influencer.platform" size="xl" />
+                </span>
+              } @else {
+                <a class="creator-card__photo" [routerLink]="['/influencers', influencer.id]" tabindex="-1" aria-hidden="true">
+                  <app-influencer-avatar [name]="influencer.name" [src]="influencer.avatar_url" [platform]="influencer.platform" size="xl" />
+                </a>
+              }
 
               <div class="creator-card__body">
                 <h3 class="creator-card__name">
-                  <a [routerLink]="['/influencers', influencer.id]">{{ influencer.name }}</a>
+                  @if (influencer.locked) {
+                    {{ influencer.name }}
+                  } @else {
+                    <a [routerLink]="['/influencers', influencer.id]">{{ influencer.name }}</a>
+                  }
                   @if (influencer.is_verified) {
                     <span class="tick" [title]="'Verified' | t">
                       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.4 1.8 3-.2.9 2.8 2.5 1.7-1 2.9 1 2.9-2.5 1.7-.9 2.8-3-.2L12 22l-2.4-1.8-3 .2-.9-2.8-2.5-1.7 1-2.9-1-2.9 2.5-1.7.9-2.8 3 .2z" /><path d="m8.5 12.2 2.3 2.3 4.7-4.9" class="tick__mark" /></svg>
@@ -250,7 +265,16 @@ const EXTRA_FILTERS = ['country', 'followers_min', 'followers_max', 'engagement_
                     </span>
                   }
                 </h3>
-                <p class="creator-card__handle">&#64;{{ influencer.username }}</p>
+                <p class="creator-card__handle" [class.is-masked]="influencer.locked">
+                  @if (influencer.locked) { <svg class="lock-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg> }
+                  &#64;{{ influencer.username }}
+                </p>
+                @if (influencer.contact; as contact) {
+                  <ul class="creator-card__contact" [class.is-masked]="influencer.locked" [attr.aria-label]="'Contact details' | t">
+                    <li><span class="visually-hidden">{{ 'Email' | t }}: </span>✉ {{ contact.email ?? '–' }}</li>
+                    <li><span class="visually-hidden">{{ 'Phone' | t }}: </span>☎ {{ contact.phone ?? '–' }}</li>
+                  </ul>
+                }
                 <p class="creator-card__meta">
                   @if (influencer.category) {
                     <span class="tag">{{ influencer.category | t }}</span>
@@ -276,7 +300,13 @@ const EXTRA_FILTERS = ['country', 'followers_min', 'followers_max', 'engagement_
                 <div><dt>{{ 'Avg. likes' | t }}</dt><dd [class.na]="influencer.avg_likes === null">{{ influencer.avg_likes | metric }}</dd></div>
               </dl>
 
-              <a class="btn btn--block creator-card__cta" [routerLink]="['/influencers', influencer.id]">{{ 'View profile' | t }}</a>
+              @if (influencer.locked) {
+                <button class="btn btn--block creator-card__cta" type="button" disabled [attr.title]="'Subscribe to open full profiles' | t">
+                  {{ 'View profile' | t }}
+                </button>
+              } @else {
+                <a class="btn btn--block creator-card__cta" [routerLink]="['/influencers', influencer.id]">{{ 'View profile' | t }}</a>
+              }
             </li>
           }
         </ul>
@@ -305,13 +335,29 @@ const EXTRA_FILTERS = ['country', 'followers_min', 'followers_max', 'engagement_
                            [attr.aria-label]="'Select {name} to compare' | t: { name: influencer.name }" />
                   </td>
                   <td>
-                    <a class="person" [routerLink]="['/influencers', influencer.id]">
-                      <app-influencer-avatar [name]="influencer.name" [src]="influencer.avatar_url" [platform]="influencer.platform" size="sm" />
-                      <span>
-                        <span class="person__name">{{ influencer.name }}</span>
-                        <span class="person__handle">&#64;{{ influencer.username }}</span>
+                    @if (influencer.locked) {
+                      <span class="person person--locked">
+                        <app-influencer-avatar [name]="influencer.name" [src]="influencer.avatar_url" [platform]="influencer.platform" size="sm" />
+                        <span>
+                          <span class="person__name">{{ influencer.name }}</span>
+                          <span class="person__handle is-masked">&#64;{{ influencer.username }}</span>
+                          @if (influencer.contact; as contact) {
+                            <span class="person__handle is-masked">✉ {{ contact.email ?? '–' }} · ☎ {{ contact.phone ?? '–' }}</span>
+                          }
+                        </span>
                       </span>
-                    </a>
+                    } @else {
+                      <a class="person" [routerLink]="['/influencers', influencer.id]">
+                        <app-influencer-avatar [name]="influencer.name" [src]="influencer.avatar_url" [platform]="influencer.platform" size="sm" />
+                        <span>
+                          <span class="person__name">{{ influencer.name }}</span>
+                          <span class="person__handle">&#64;{{ influencer.username }}</span>
+                          @if (influencer.contact; as contact) {
+                            <span class="person__handle">✉ {{ contact.email ?? '–' }} · ☎ {{ contact.phone ?? '–' }}</span>
+                          }
+                        </span>
+                      </a>
+                    }
                     @if (influencer.is_verified) {
                       <span class="badge">{{ 'Verified' | t }}</span>
                     }
@@ -367,6 +413,8 @@ export class InfluencerSearch implements OnInit {
   protected readonly page = signal<Paginated<Influencer> | null>(null);
   protected readonly results = computed(() => this.page()?.data ?? []);
   protected readonly isSample = computed(() => this.results().some((i) => i.data_source === 'sample'));
+  /** Without a subscription, details are hidden and full profiles cannot be opened. */
+  protected readonly isLocked = computed(() => this.results().some((i) => i.locked));
   protected readonly loading = signal(true);
   protected readonly error = signal('');
   protected readonly sortValue = signal(SORTS[0].value);
