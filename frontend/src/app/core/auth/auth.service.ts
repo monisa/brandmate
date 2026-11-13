@@ -55,6 +55,14 @@ export class AuthService {
     return this.start(this.http.post<Item<Session>>(`${this.api}/auth/oauth/exchange`, { code }));
   }
 
+  /** Which providers the server has credentials for. A failed request means none. */
+  oauthProviders(): Observable<{ google: boolean; facebook: boolean }> {
+    return this.http.get<Item<{ google: boolean; facebook: boolean }>>(`${this.api}/auth/oauth/providers`).pipe(
+      map((res) => res.data),
+      catchError(() => of({ google: false, facebook: false })),
+    );
+  }
+
   /** Full-page address that starts sign-in with a provider (the browser leaves the app). */
   oauthUrl(provider: 'google' | 'facebook'): string {
     return `${this.api}/auth/oauth/${provider}`;

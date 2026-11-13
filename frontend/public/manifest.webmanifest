@@ -1,0 +1,23 @@
+{
+  "name": "BrandMate",
+  "short_name": "BrandMate",
+  "description": "Discover. Compare. Collaborate. Find, compare and shortlist creators on Instagram, YouTube and Facebook.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f6f7fb",
+  "theme_color": "#c8245c",
+  "categories": ["business", "productivity", "social"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Find influencers", "url": "/influencers", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Shortlists", "url": "/shortlists", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
+  ]
+}
