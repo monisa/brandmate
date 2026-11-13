@@ -19,8 +19,9 @@
   // The Latin faces have no Indic glyphs, so Hindi, Tamil and Malayalam fall
   // through to the Noto faces (or the system's own, such as Nirmala UI).
   --font-indic: 'Noto Sans Devanagari', 'Noto Sans Tamil', 'Noto Sans Malayalam', 'Nirmala UI';
-  --font-body: 'Figtree', var(--font-indic), system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: 'Bricolage Grotesque', 'Figtree', var(--font-indic), system-ui, sans-serif;
+  // Poppins first; Segoe UI is the fallback while it loads or if Google Fonts is blocked.
+  --font-body: 'Poppins', 'Segoe UI', var(--font-indic), system-ui, -apple-system, sans-serif;
+  --font-display: 'Poppins', 'Segoe UI', var(--font-indic), system-ui, sans-serif;
 
   --radius: 10px;
   --radius-lg: 18px;
@@ -148,19 +149,60 @@ td > .badge:first-child { margin-left: 0; }
 .badge--warn { background: var(--warn-bg); color: var(--warn); }
 
 // ---------- Signed-out pages ----------
-.auth { min-height: 100vh; display: grid; grid-template-columns: minmax(18rem, 5fr) 7fr; }
+.auth { min-height: 100vh; display: grid; grid-template-columns: 7fr 5fr; background: var(--surface); }
 .auth__brand {
-  background: radial-gradient(90% 60% at 100% 0%, rgba(124, 58, 237, 0.45), transparent 60%),
-    radial-gradient(80% 60% at 0% 100%, rgba(255, 95, 143, 0.4), transparent 60%), var(--ink);
-  color: #fff;
-  padding: 2.5rem 3rem; display: flex; flex-direction: column; justify-content: space-between; gap: 2rem;
+  background: radial-gradient(60% 50% at 85% 20%, rgba(124, 58, 237, 0.10), transparent 70%),
+    radial-gradient(60% 50% at 10% 90%, rgba(255, 95, 143, 0.12), transparent 70%), var(--surface);
+  color: var(--ink);
+  border-right: 1px solid var(--line);
+  padding: 2rem 3rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1.5rem;
 }
 .auth__logo { font: 700 1.125rem var(--font-display); margin: 0; }
-.auth__pitch { font: 700 clamp(2rem, 3.4vw, 3.25rem)/1.05 var(--font-display); letter-spacing: -0.02em; margin-bottom: 1.25rem; max-width: 14ch; }
-.auth__detail { color: #c5cbe0; max-width: 42ch; margin: 0; }
-.auth__platforms { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; margin: 0; }
-.auth__platforms li { border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 999px; padding: 0.25rem 0.875rem; font-size: 0.875rem; }
-.auth__main { display: grid; place-items: center; padding: 2.5rem 1.5rem; }
+.auth__story { display: grid; justify-items: center; text-align: center; }
+.auth__pitch { font: 600 clamp(2rem, 3.2vw, 3rem)/1.2 var(--font-display); letter-spacing: -0.02em; margin: 0 0 0.75rem; max-width: 18ch; }
+.auth__accent { background: var(--brand-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.auth__detail { color: var(--ink-soft); max-width: 44ch; margin: 0 auto; }
+.auth__platforms { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; padding: 0; margin: 0; }
+.auth__platforms li { display: inline-flex; align-items: center; gap: 0.375rem; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 0.3125rem 0.875rem; font-size: 0.875rem; font-weight: 500; }
+.auth__main { display: grid; place-items: center; padding: 2.5rem 1.5rem; background: var(--paper); }
+
+// Product picture on the sign-in pages: a fan of creator cards with floating stats.
+.showcase { position: relative; width: min(100%, 26rem); height: 22rem; margin-top: 2.25rem; }
+.showcase__card {
+  position: absolute; top: 2rem; width: 10.5rem; height: 16rem; border-radius: 22px; overflow: hidden;
+  background: var(--brand-grad); box-shadow: 0 22px 40px -18px rgba(22, 33, 62, 0.55); border: 4px solid #fff;
+}
+.showcase__card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.showcase__card--left { left: 0.5rem; transform: rotate(-9deg); }
+.showcase__card--right { right: 0.5rem; transform: rotate(9deg); }
+.showcase__card--main { left: 50%; top: 0; width: 12.5rem; height: 19.5rem; transform: translateX(-50%); z-index: 2; }
+.showcase__info {
+  position: absolute; inset: auto 0 0 0; padding: 2.5rem 0.875rem 0.875rem; text-align: left; color: #fff;
+  background: linear-gradient(180deg, transparent, rgba(10, 14, 30, 0.82)); display: grid; gap: 0.125rem; font-size: 0.75rem;
+}
+.showcase__info strong { font-size: 0.9375rem; display: flex; align-items: center; gap: 0.25rem; }
+.showcase__tick { display: inline-grid; place-items: center; width: 1rem; height: 1rem; border-radius: 50%; background: #1d9bf0; font-size: 0.625rem; }
+.showcase__stats { margin-top: 0.25rem; opacity: 0.92; }
+.showcase__stats b { font-size: 0.875rem; }
+.showcase__chip {
+  position: absolute; top: 0.625rem; left: 0.625rem; display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.1875rem 0.5rem; border-radius: 999px; background: rgba(255, 255, 255, 0.94); color: var(--ink); font-size: 0.6875rem; font-weight: 600;
+}
+.showcase__chip .pi { width: 0.8125rem; height: 0.8125rem; }
+.showcase__bubble {
+  position: absolute; z-index: 3; display: inline-flex; align-items: center; gap: 0.375rem; white-space: nowrap;
+  padding: 0.4375rem 0.75rem; border-radius: 999px; background: #fff; color: var(--ink); font-size: 0.75rem; font-weight: 600;
+  box-shadow: 0 10px 24px -10px rgba(22, 33, 62, 0.45);
+}
+.showcase__bubble--heart { left: 0; top: 13rem; width: 2.75rem; height: 2.75rem; justify-content: center; padding: 0; font-size: 1.25rem; color: #fff; background: linear-gradient(135deg, #ff5f8f, #e11d48); }
+.showcase__bubble--rate { right: -0.5rem; top: 4.5rem; color: #047857; }
+.showcase__bubble--saved { left: 50%; bottom: 0; transform: translateX(-50%); background: var(--ink); color: #fff; }
+
+.divider { display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0; color: var(--ink-soft); font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.social { display: grid; gap: 0.625rem; }
+.social__btn { gap: 0.625rem; min-height: 2.875rem; border-radius: 999px; font-weight: 600; }
+.social__btn svg { width: 1.25rem; height: 1.25rem; }
 .auth__panel { width: 100%; max-width: 25rem; }
 .auth__panel h1 { margin-bottom: 0.5rem; }
 .auth__panel form, .auth__panel > .alert:first-of-type { margin-top: 1.5rem; }
@@ -268,8 +310,9 @@ td.actions .btn { min-height: 2.125rem; padding: 0.375rem 0.75rem; }
 // ---------- Smaller screens ----------
 @media (max-width: 56rem) {
   .auth { grid-template-columns: 1fr; }
-  .auth__brand { padding: 1.5rem; gap: 1rem; }
-  .auth__pitch { font-size: 1.75rem; max-width: none; margin-bottom: 0.5rem; }
+  .auth__brand { padding: 1.25rem 1.5rem; gap: 1rem; border-right: 0; border-bottom: 1px solid var(--line); }
+  .auth__pitch { font-size: 1.625rem; max-width: none; margin-bottom: 0.5rem; }
+  .auth__detail, .showcase { display: none; }
   .auth__platforms { display: none; }
   .auth__main { place-items: start center; }
 

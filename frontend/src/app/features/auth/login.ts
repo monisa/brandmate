@@ -5,11 +5,22 @@ import { AuthService } from '../../core/auth/auth.service';
 import { messageFrom } from '../../core/forms';
 import { FieldError } from '../../shared/components/field-error';
 import { AuthShell } from './auth-shell';
+import { SocialButtons } from './social-buttons';
+
+/** Why "Continue with Google / Facebook" sent the person back here. */
+const OAUTH_ERRORS: Record<string, string> = {
+  no_account: 'No BrandMate account uses this {provider} e-mail address yet.',
+  no_email: '{provider} did not share a confirmed e-mail address, so we could not sign you in.',
+  not_configured: 'Sign-in with {provider} is not set up yet. Use your e-mail and password for now.',
+  cancelled: 'Sign-in with {provider} was cancelled.',
+  expired: 'That sign-in attempt expired. Please try again.',
+  failed: 'Sign-in with {provider} failed. Please try again.',
+};
 import { TPipe } from '../../core/i18n/t.pipe';
 
 @Component({
   selector: 'app-login',
-  imports: [TPipe, ReactiveFormsModule, RouterLink, AuthShell, FieldError],
+  imports: [TPipe, ReactiveFormsModule, RouterLink, AuthShell, FieldError, SocialButtons],
   template: `
     <app-auth-shell [heading]="'Sign in' | t">
       @if (expired) {
@@ -17,6 +28,14 @@ import { TPipe } from '../../core/i18n/t.pipe';
       }
       @if (error()) {
         <p class="alert alert--error" role="alert">{{ error() | t }}</p>
+      }
+      @if (oauthError) {
+        <p class="alert alert--error" role="alert">
+          {{ oauthError | t: { provider: oauthProvider } }}
+          @if (oauthNoAccount) {
+            <a routerLink="/register">{{ 'Create a brand account' | t }}</a>
+          }
+        </p>
       }
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
         <div class="field">
@@ -47,6 +66,7 @@ import { TPipe } from '../../core/i18n/t.pipe';
           {{ (busy() ? 'Signing in…' : 'Sign in') | t }}
         </button>
       </form>
+      <app-social-buttons />
       <p class="auth__switch">
         {{ 'New here?' | t }} <a routerLink="/register">{{ 'Create a brand account' | t }}</a> {{ 'or' | t }} <a routerLink="/register/creator">{{ 'join as a creator' | t }}</a>
       </p>
@@ -59,6 +79,10 @@ export class Login {
   private readonly route = inject(ActivatedRoute);
 
   protected readonly expired = this.route.snapshot.queryParamMap.has('expired');
+  private readonly oauthCode = this.route.snapshot.queryParamMap.get('oauth_error') ?? '';
+  protected readonly oauthError = OAUTH_ERRORS[this.oauthCode] ?? '';
+  protected readonly oauthNoAccount = this.oauthCode === 'no_account';
+  protected readonly oauthProvider = this.route.snapshot.queryParamMap.get('provider') === 'facebook' ? 'Facebook' : 'Google';
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly passwordVisible = signal(false);

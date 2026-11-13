@@ -50,6 +50,16 @@ export class AuthService {
     return this.start(this.http.post<Item<Session>>(`${this.api}/auth/login`, { email, password }));
   }
 
+  /** Finishes "Continue with Google / Facebook": trades the one-time code for a session. */
+  exchangeOAuthCode(code: string): Observable<User> {
+    return this.start(this.http.post<Item<Session>>(`${this.api}/auth/oauth/exchange`, { code }));
+  }
+
+  /** Full-page address that starts sign-in with a provider (the browser leaves the app). */
+  oauthUrl(provider: 'google' | 'facebook'): string {
+    return `${this.api}/auth/oauth/${provider}`;
+  }
+
   register(payload: RegisterPayload): Observable<User> {
     return this.start(this.http.post<Item<Session>>(`${this.api}/auth/register`, payload));
   }

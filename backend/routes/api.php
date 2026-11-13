@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\CreatorController;
 use App\Http\Controllers\Api\V1\InfluencerController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\ShortlistController;
+use App\Http\Controllers\Api\V1\SocialAuthController;
 use App\Http\Controllers\Api\V1\TeamController;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +31,13 @@ Route::prefix('auth')->middleware('throttle:auth')->group(function () {
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
     Route::get('email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
         ->middleware('signed')->whereNumber('id')->name('verification.verify');
+
+    // Continue with Google / Facebook (existing accounts only).
+    Route::get('oauth/providers', [SocialAuthController::class, 'providers']);
+    Route::post('oauth/exchange', [SocialAuthController::class, 'exchange']);
+    Route::get('oauth/{provider}', [SocialAuthController::class, 'redirect'])->whereIn('provider', ['google', 'facebook']);
+    Route::get('oauth/{provider}/callback', [SocialAuthController::class, 'callback'])
+        ->whereIn('provider', ['google', 'facebook'])->name('oauth.callback');
 });
 
 Route::middleware('throttle:auth')->group(function () {

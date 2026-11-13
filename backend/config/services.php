@@ -22,6 +22,18 @@ return [
         'key' => env('RESEND_API_KEY'),
     ],
 
+    // "Continue with Google / Facebook". Redirect URI to register with each provider:
+    //   <APP_URL>/api/v1/auth/oauth/google/callback   and   .../oauth/facebook/callback
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+    ],
+
+    'facebook' => [
+        'client_id' => env('FACEBOOK_CLIENT_ID'),
+        'client_secret' => env('FACEBOOK_CLIENT_SECRET'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

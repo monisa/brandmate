@@ -17,6 +17,7 @@ export const routes: Routes = [
     canActivate: [guestGuard],
     loadComponent: () => import('./features/auth/forgot-password').then((m) => m.ForgotPassword),
   },
+  { path: 'oauth/callback', loadComponent: () => import('./features/auth/oauth-callback').then((m) => m.OAuthCallback) },
   { path: 'reset-password', loadComponent: () => import('./features/auth/reset-password').then((m) => m.ResetPassword) },
   { path: 'verify-email', loadComponent: () => import('./features/auth/verify-email').then((m) => m.VerifyEmail) },
   { path: 'accept-invite', loadComponent: () => import('./features/auth/accept-invite').then((m) => m.AcceptInvite) },
