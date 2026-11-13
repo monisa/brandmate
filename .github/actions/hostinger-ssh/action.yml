@@ -1,0 +1,82 @@
+name: Hostinger SSH
+description: Sets up SSH to Hostinger, checks the key and connection, and finds the live install (exports WEB_DIR and APP_DIR).
+# Needs SSH_HOST, SSH_PORT, SSH_USER and DEPLOY_PATH in the job env.
+inputs:
+  ssh-key:
+    description: Private key (HOSTINGER_SSH_KEY)
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Set up SSH
+      shell: bash
+      env:
+        SSH_KEY: ${{ inputs.ssh-key }}
+      run: |
+        mkdir -p ~/.ssh
+        # Keys copied on Windows often carry CRLF line endings, which OpenSSH rejects.
+        # Anything pasted before the BEGIN line (a title, blank lines, spaces) is dropped.
+        printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//' \
+          | awk '/^-----BEGIN /{found=1} found' > ~/.ssh/id_deploy
+        if [ ! -s ~/.ssh/id_deploy ]; then
+          body=$(printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^$')
+          if [ -n "$body" ] && ! printf '%s\n' "$body" | grep -vqE '^[A-Za-z0-9+/=]+$'; then
+            # Only the key body was pasted: put the OpenSSH header and footer back.
+            { echo '-----BEGIN OPENSSH PRIVATE KEY-----'; printf '%s\n' "$body"; echo '-----END OPENSSH PRIVATE KEY-----'; } > ~/.ssh/id_deploy
+          else
+            printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_deploy  # keep as-is for the checks below
+          fi
+        fi
+        chmod 600 ~/.ssh/id_deploy
+        ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+        cat > ~/.ssh/config <<EOF
+        Host hostinger
+          HostName $SSH_HOST
+          Port $SSH_PORT
+          User $SSH_USER
+          IdentityFile ~/.ssh/id_deploy
+          IdentitiesOnly yes
+          BatchMode yes
+          StrictHostKeyChecking accept-new
+          ConnectTimeout 20
+        EOF
+
+    - name: Test the SSH connection
+      shell: bash
+      run: |
+        first=$(head -1 ~/.ssh/id_deploy)
+        case "$first" in
+          ssh-*|ecdsa-*) echo "::error::HOSTINGER_SSH_KEY holds a PUBLIC key (.pub). Use the private key file without .pub."; exit 1 ;;
+          PuTTY-User-Key-File*) echo "::error::HOSTINGER_SSH_KEY is a PuTTY .ppk key. Export it in PuTTYgen via Conversions > Export OpenSSH key."; exit 1 ;;
+          -----BEGIN*) ;;
+          *)
+            lines=$(wc -l < ~/.ssh/id_deploy)
+            if echo "$first" | grep -Eq '^[A-Za-z0-9+/=]+$'; then kind="only base64 characters (the BEGIN line is missing)";
+            elif echo "$first" | grep -q ' '; then kind="words with spaces (a password or note?)";
+            else kind="other characters"; fi
+            echo "::error::HOSTINGER_SSH_KEY has no -----BEGIN line. It has $lines lines; the first is ${#first} characters of $kind. If you also have a HOSTINGER_SSH_KEY under Settings > Environments > production, it overrides the repository secret."
+            exit 1 ;;
+        esac
+        if ! ssh-keygen -y -P '' -f ~/.ssh/id_deploy > /dev/null 2> /tmp/keyerr; then
+          echo "::error::HOSTINGER_SSH_KEY could not be read ($(cat /tmp/keyerr)). Keys with a passphrase are not supported; create one with -N \"\". The key has $(wc -l < ~/.ssh/id_deploy) lines and ends with: $(tail -1 ~/.ssh/id_deploy | cut -c1-30)"
+          exit 1
+        fi
+        if ! ssh hostinger 'echo connected; pwd' 2> /tmp/ssherr; then
+          echo "::error::SSH to $SSH_USER@host:$SSH_PORT failed: $(tail -3 /tmp/ssherr | tr '\n' ' ' | sed "s/$SSH_HOST/host/g")"
+          exit 1
+        fi
+
+    # Finds the live install instead of assuming a layout:
+    #   WEB_DIR = the folder the site is served from (its index.php loads brandmate-app)
+    #   APP_DIR = the brandmate-app that index.php loads, checked in the same order as index.php
+    - name: Locate the live install
+      shell: bash
+      run: |
+        path=$(printf '%s' "$DEPLOY_PATH" | sed -e 's#^~/##' -e 's#/*$##')
+        ssh hostinger bash -s -- "$path" < deploy/hostinger/locate-install.sh > /tmp/locate
+        if grep -q '^ERR' /tmp/locate; then
+          echo "::error::Could not find the live BrandMate install. $(sed 's/^ERR //' /tmp/locate | sed "s#/home/$SSH_USER/##g"). Set HOSTINGER_DEPLOY_PATH to the folder that holds the site's index.php, e.g. domains/yourdomain.com/public_html/brandmate"
+          exit 1
+        fi
+        cat /tmp/locate >> "$GITHUB_ENV"
+        sed "s#/home/$SSH_USER/#~/#" /tmp/locate
