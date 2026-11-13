@@ -16,10 +16,10 @@ use Illuminate\Validation\Rules\Password;
 /**
  * Creates (or resets) an e-mail-verified Company Admin with a company, for demos.
  *
- * The password is read from a file so it never appears in the command line or the
- * process list; use /dev/stdin to pipe it in:
+ * The password is read from standard input (or a file) so it never appears in the command line or the
+ * process list:
  *
- *   printf '%s' "$PASSWORD" | php artisan demo:admin demo@example.com --password-file=/dev/stdin
+ *   printf '%s' "$PASSWORD" | php artisan demo:admin demo@example.com --password-file=-
  *
  * Running it again for the same e-mail resets the password. Super admins and
  * creator accounts are never touched.
@@ -28,7 +28,7 @@ class CreateDemoAdmin extends Command
 {
     protected $signature = 'demo:admin
         {email : Sign-in e-mail}
-        {--password-file= : File that holds the password (use /dev/stdin to pipe it in)}
+        {--password-file= : File that holds the password, or - to read it from standard input}
         {--name=Demo Admin : Display name}
         {--company=Demo Company : Company to create}';
 
@@ -38,7 +38,13 @@ class CreateDemoAdmin extends Command
     {
         $email = strtolower(trim((string) $this->argument('email')));
         $file = (string) $this->option('password-file');
-        $password = $file !== '' && is_readable($file) ? rtrim((string) file_get_contents($file), "\r\n") : '';
+        // "-" means standard input (PHP's own stream; some hosts have no /dev/stdin).
+        $raw = match (true) {
+            $file === '-' => stream_get_contents(fopen('php://stdin', 'r')),
+            $file !== '' && is_readable($file) => file_get_contents($file),
+            default => '',
+        };
+        $password = rtrim((string) $raw, "\r\n");
 
         $validator = Validator::make(
             ['email' => $email, 'password' => $password],

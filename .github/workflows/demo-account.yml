@@ -58,7 +58,7 @@ jobs:
           set +e
           # The password travels over SSH stdin: not in a command line, a log or the process list.
           printf '%s' "$DEMO_PASSWORD" | ssh hostinger \
-            "cd $(sq "$APP_DIR") && php artisan demo:admin $(sq "$DEMO_EMAIL") --password-file=/dev/stdin --company=$(sq "$DEMO_COMPANY") --no-ansi" \
+            "cd $(sq "$APP_DIR") && php artisan demo:admin $(sq "$DEMO_EMAIL") --password-file=- --company=$(sq "$DEMO_COMPANY") --no-ansi" \
             > /tmp/demo.log 2>&1
           status=$?
           set -e
