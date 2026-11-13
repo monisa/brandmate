@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Domain\Companies\Models\Membership;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -27,7 +26,7 @@ class DemoAdminTest extends TestCase
 
         $user = User::where('email', 'demo@example.com')->firstOrFail();
         $this->assertNotNull($user->email_verified_at);
-        $this->assertSame('company_admin', Membership::where('user_id', $user->id)->with('role')->first()->role->slug);
+        $this->assertSame('company_admin', $user->membership->role->slug);
         $this->assertDatabaseHas('companies', ['name' => 'Acme Demo']);
 
         $this->postJson('/api/v1/auth/login', ['email' => 'demo@example.com', 'password' => 'Demo-Pass-2026!x'])

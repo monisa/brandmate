@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Domain\Audit\Models\AuditLog;
+use App\Domain\Companies\CompanyScope;
 use App\Domain\Companies\Models\Company;
 use App\Domain\Companies\Models\Membership;
 use App\Domain\Rbac\Models\Role;
@@ -69,7 +70,8 @@ class CreateDemoAdmin extends Command
                 'email_verified_at' => now(),
             ])->save();
 
-            if (! Membership::where('user_id', $user->id)->exists()) {
+            // Memberships are tenant-scoped and a console command has no tenant, so opt out.
+            if (! Membership::withoutGlobalScope(CompanyScope::class)->where('user_id', $user->id)->exists()) {
                 $company = Company::create([
                     'name' => (string) $this->option('company'),
                     'slug' => Company::uniqueSlug((string) $this->option('company')),
