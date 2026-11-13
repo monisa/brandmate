@@ -67,7 +67,13 @@ jobs:
           printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//' \
             | awk '/^-----BEGIN /{found=1} found' > ~/.ssh/id_deploy
           if [ ! -s ~/.ssh/id_deploy ]; then
-            printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_deploy  # keep as-is for the checks below
+            body=$(printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^$')
+            if [ -n "$body" ] && ! printf '%s\n' "$body" | grep -vqE '^[A-Za-z0-9+/=]+$'; then
+              # Only the key body was pasted: put the OpenSSH header and footer back.
+              { echo '-----BEGIN OPENSSH PRIVATE KEY-----'; printf '%s\n' "$body"; echo '-----END OPENSSH PRIVATE KEY-----'; } > ~/.ssh/id_deploy
+            else
+              printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_deploy  # keep as-is for the checks below
+            fi
           fi
           chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
