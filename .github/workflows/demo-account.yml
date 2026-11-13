@@ -1,0 +1,70 @@
+name: Create demo account (Company Admin)
+
+# Manual only: GitHub > Actions > "Create demo account (Company Admin)" > Run workflow.
+#
+# This repository is public, so the PASSWORD IS NOT A WORKFLOW INPUT (inputs are
+# shown on the run page). Set it once as a repository secret named
+# DEMO_ADMIN_PASSWORD (Settings > Secrets and variables > Actions); secrets are
+# masked in logs. Run the workflow again after changing the secret to reset the password.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Sign-in e-mail for the demo account'
+        required: true
+        default: 'demo@brandmate.example'
+      company:
+        description: 'Company name'
+        required: true
+        default: 'Demo Company'
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+      SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
+      SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
+      DEPLOY_PATH: ${{ secrets.HOSTINGER_DEPLOY_PATH }}
+    steps:
+      - name: Check the password secret
+        env:
+          DEMO_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD }}
+        run: |
+          if [ -z "$DEMO_PASSWORD" ]; then
+            echo "::error::Add a repository secret named DEMO_ADMIN_PASSWORD first (at least 8 characters with letters and numbers; a long passphrase is best)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Connect to Hostinger and find the install
+        uses: ./.github/actions/hostinger-ssh
+        with:
+          ssh-key: ${{ secrets.HOSTINGER_SSH_KEY }}
+
+      - name: Create or reset the demo account
+        env:
+          DEMO_PASSWORD: ${{ secrets.DEMO_ADMIN_PASSWORD }}
+          DEMO_EMAIL: ${{ inputs.email }}
+          DEMO_COMPANY: ${{ inputs.company }}
+        run: |
+          # Single-quotes a value for the remote shell.
+          sq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+          set +e
+          # The password travels over SSH stdin: not in a command line, a log or the process list.
+          printf '%s' "$DEMO_PASSWORD" | ssh hostinger \
+            "cd $(sq "$APP_DIR") && php artisan demo:admin $(sq "$DEMO_EMAIL") --password-file=/dev/stdin --company=$(sq "$DEMO_COMPANY") --no-ansi" \
+            > /tmp/demo.log 2>&1
+          status=$?
+          set -e
+          grep -v 'post-quantum\|store now, decrypt later\|openssh.com/pq' /tmp/demo.log
+          if [ $status -ne 0 ]; then
+            echo "::error::demo:admin failed: $(grep -v 'post-quantum\|store now\|openssh.com/pq\|^\s*$' /tmp/demo.log | tail -4 | tr '\n' ' ' | cut -c1-500)"
+            exit 1
+          fi
+          echo "::notice::Demo Company Admin ready: $DEMO_EMAIL (password = your DEMO_ADMIN_PASSWORD secret)"
