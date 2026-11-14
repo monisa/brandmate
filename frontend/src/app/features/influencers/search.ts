@@ -344,6 +344,7 @@ const EXTRA_FILTERS = ['country', 'followers_min', 'followers_max', 'engagement_
                           @if (influencer.contact; as contact) {
                             <span class="person__handle is-masked">✉ {{ contact.email ?? '–' }} · ☎ {{ contact.phone ?? '–' }}</span>
                           }
+                          @if (influencer.bio) { <span class="person__handle person__bio is-masked">{{ influencer.bio }}</span> }
                         </span>
                       </span>
                     } @else {
@@ -355,6 +356,7 @@ const EXTRA_FILTERS = ['country', 'followers_min', 'followers_max', 'engagement_
                           @if (influencer.contact; as contact) {
                             <span class="person__handle">✉ {{ contact.email ?? '–' }} · ☎ {{ contact.phone ?? '–' }}</span>
                           }
+                          @if (influencer.bio) { <span class="person__handle person__bio">{{ influencer.bio }}</span> }
                         </span>
                       </a>
                     }
