@@ -109,7 +109,7 @@ import { Logo } from '../shared/components/logo';
           <span class="avatar" aria-hidden="true">{{ initials() }}</span>
           <div class="shell__who">
             <span class="shell__name">{{ user()?.name }}</span>
-            <span class="shell__role">{{ (user()?.is_super_admin ? 'Super Admin' : user()?.account_type === 'creator' ? 'Creator' : user()?.role?.name) | t }}</span>
+            <span class="shell__role">{{ (user()?.is_super_admin ? 'Super Admin' : user()?.account_type === 'creator' ? 'Creator' : user()?.role?.slug === 'company_admin' ? 'Brand Owner' : user()?.role?.name) | t }}</span>
           </div>
           <app-language-switcher class="shell__language" />
           <button class="btn btn--onDark" type="button" (click)="auth.logout()">{{ 'Sign out' | t }}</button>

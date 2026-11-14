@@ -67,6 +67,7 @@ const dictionary: Record<string, string> = {
   'Companies could not be loaded.': 'कंपनियाँ लोड नहीं हो सकीं।',
   'Company': 'कंपनी',
   'Company Admin': 'कंपनी एडमिन',
+  'Brand Owner': 'ब्रांड ओनर',
   'Company details could not be loaded.': 'कंपनी का विवरण लोड नहीं हो सका।',
   'Company name': 'कंपनी का नाम',
   'Company saved.': 'कंपनी सहेजी गई।',

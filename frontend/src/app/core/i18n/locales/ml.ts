@@ -67,6 +67,7 @@ const dictionary: Record<string, string> = {
   'Companies could not be loaded.': 'കമ്പനികൾ ലോഡ് ചെയ്യാനായില്ല.',
   'Company': 'കമ്പനി',
   'Company Admin': 'കമ്പനി അഡ്മിൻ',
+  'Brand Owner': 'ബ്രാൻഡ് ഉടമ',
   'Company details could not be loaded.': 'കമ്പനി വിവരങ്ങൾ ലോഡ് ചെയ്യാനായില്ല.',
   'Company name': 'കമ്പനിയുടെ പേര്',
   'Company saved.': 'കമ്പനി സേവ് ചെയ്തു.',

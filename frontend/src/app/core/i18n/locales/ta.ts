@@ -67,6 +67,7 @@ const dictionary: Record<string, string> = {
   'Companies could not be loaded.': 'நிறுவனங்களை ஏற்ற முடியவில்லை.',
   'Company': 'நிறுவனம்',
   'Company Admin': 'நிறுவன நிர்வாகி',
+  'Brand Owner': 'பிராண்ட் உரிமையாளர்',
   'Company details could not be loaded.': 'நிறுவன விவரங்களை ஏற்ற முடியவில்லை.',
   'Company name': 'நிறுவனத்தின் பெயர்',
   'Company saved.': 'நிறுவனம் சேமிக்கப்பட்டது.',
