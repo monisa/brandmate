@@ -116,6 +116,13 @@ import { Logo } from '../shared/components/logo';
         </div>
       </aside>
 
+      @if (chat.toast(); as toast) {
+        <a class="toast-mail" role="status" [routerLink]="['/messages']" [queryParams]="{ c: toast.id }" (click)="chat.dismiss()">
+          <strong>{{ toast.name }}</strong>
+          <span>{{ toast.body }}</span>
+        </a>
+      }
+
       <main class="shell__main" id="main" tabindex="-1">
         <router-outlet />
       </main>

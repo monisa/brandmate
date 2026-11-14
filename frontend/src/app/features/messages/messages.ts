@@ -29,12 +29,13 @@ import { ChatService } from '../../core/services/chat.service';
         <ul>
           @for (c of conversations(); track c.id) {
             <li>
-              <button type="button" class="chat__item" [class.is-active]="c.id === activeId()" (click)="select(c.id)">
+              <button type="button" class="chat__item" [class.is-active]="c.id === activeId()" [class.is-unread]="c.unread_count > 0" (click)="select(c.id)">
                 <span class="avatar" aria-hidden="true">{{ c.counterpart.name.charAt(0).toUpperCase() }}</span>
                 <span class="chat__who">
                   <strong>{{ c.counterpart.name }}</strong>
-                  <span class="muted">{{ c.last_message?.body ?? '' }}</span>
+                  <span class="muted">{{ c.last_message?.from_me ? ('You: ' | t) : '' }}{{ c.last_message?.body ?? '' }}</span>
                 </span>
+                @if (c.last_message_at) { <time class="chat__time">{{ c.last_message_at | date: 'shortTime' }}</time> }
                 @if (c.unread_count > 0) {
                   <span class="badge badge--count">{{ c.unread_count }}</span>
                 }
