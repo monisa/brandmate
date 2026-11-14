@@ -14,7 +14,7 @@ class Message extends Model
 
     protected function casts(): array
     {
-        return ['created_at' => 'datetime'];
+        return ['created_at' => 'datetime', 'edited_at' => 'datetime', 'deleted_at' => 'datetime', 'changed_at' => 'datetime'];
     }
 
     public function conversation(): BelongsTo

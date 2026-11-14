@@ -411,6 +411,11 @@ export interface ChatMessage {
   id: number;
   body: string;
   from_me: boolean;
+  /** Written by the signed-in person, so they may edit or delete it. */
+  mine?: boolean;
+  edited?: boolean;
+  deleted?: boolean;
+  changed_at?: string | null;
   sender: string | null;
   created_at: string;
 }

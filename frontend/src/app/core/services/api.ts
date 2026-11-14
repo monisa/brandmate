@@ -356,8 +356,24 @@ export class Api {
     return this.http.post<Item<Conversation>>(`${this.base}/chat/conversations`, target).pipe(map((r) => r.data));
   }
 
-  chatMessages(id: number, after = 0): Observable<ChatMessages> {
-    return this.http.get<ChatMessages>(`${this.base}/chat/conversations/${id}/messages`, { params: after ? { after } : {} });
+  /** `after` fetches newer messages; `since` (seconds) also returns older ones that were edited or deleted. */
+  chatMessages(id: number, after = 0, since = 0): Observable<ChatMessages> {
+    const params: Record<string, number> = {};
+    if (after) {
+      params['after'] = after;
+    }
+    if (since) {
+      params['since'] = since;
+    }
+    return this.http.get<ChatMessages>(`${this.base}/chat/conversations/${id}/messages`, { params });
+  }
+
+  editChatMessage(id: number, messageId: number, body: string): Observable<ChatMessage> {
+    return this.http.patch<Item<ChatMessage>>(`${this.base}/chat/conversations/${id}/messages/${messageId}`, { body }).pipe(map((r) => r.data));
+  }
+
+  deleteChatMessage(id: number, messageId: number): Observable<ChatMessage> {
+    return this.http.delete<Item<ChatMessage>>(`${this.base}/chat/conversations/${id}/messages/${messageId}`).pipe(map((r) => r.data));
   }
 
   sendChatMessage(id: number, body: string): Observable<ChatMessage> {

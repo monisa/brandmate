@@ -665,6 +665,12 @@ const dictionary: Record<string, string> = {
   '{company} withdrew their request: {title}': '{company} ने अपना अनुरोध वापस लिया: {title}',
   '{count} could not be deleted: super admins, your own account, or rows that no longer exist.': '{count} नहीं हटाए जा सके: सुपर एडमिन, आपका अपना खाता, या वे पंक्तियाँ जो अब मौजूद नहीं हैं।',
   '{count} unread': '{count} अपठित',
+  'Edit message': 'संदेश संपादित करें',
+  'This message was deleted': 'यह संदेश हटा दिया गया',
+  'edited': 'संपादित',
+  'Delete this message?': 'यह संदेश हटाएँ?',
+  'The message could not be changed.': 'संदेश बदला नहीं जा सका।',
+  'Save': 'सहेजें',
 };
 
 export default dictionary;

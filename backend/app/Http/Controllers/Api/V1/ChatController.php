@@ -83,9 +83,12 @@ class ChatController extends Controller
         [$side, $company, $creator] = $this->actor($request);
         $conversation = $this->mine($side, $company, $creator)->with(['company', 'influencer'])->findOrFail($id);
         $after = max(0, (int) $request->query('after', 0));
+        $since = (int) $request->query('since') > 0 ? \Illuminate\Support\Carbon::createFromTimestamp((int) $request->query('since')) : null;
 
         $messages = $after > 0
-            ? $conversation->messages()->with('sender')->where('id', '>', $after)->orderBy('id')->limit(100)->get()
+            ? $conversation->messages()->with('sender')
+                ->where(fn ($q) => $q->where('id', '>', $after)->when($since, fn ($q) => $q->orWhere('changed_at', '>=', $since)))
+                ->orderBy('id')->limit(100)->get()
             : $conversation->messages()->with('sender')->latest('id')->limit(self::PAGE)->get()->reverse()->values();
 
         if ($messages->isNotEmpty()) {
@@ -99,7 +102,7 @@ class ChatController extends Controller
         $block = $this->sendBlock($request, $side, $conversation);
 
         return response()->json([
-            'data' => $messages->map(fn (Message $m) => $this->messageArray($m, $side))->values(),
+            'data' => $messages->map(fn (Message $m) => $this->messageArray($m, $side, $request->user()->id))->values(),
             'meta' => ['can_send' => $block === null, 'reason' => $block['code'] ?? null],
         ]);
     }
@@ -127,7 +130,52 @@ class ChatController extends Controller
 
         $this->push($conversation, $side, $request->user()->id, $message->body);
 
-        return response()->json(['data' => $this->messageArray($message->setRelation('sender', $request->user()), $side)], 201);
+        return response()->json(['data' => $this->messageArray($message->setRelation('sender', $request->user()), $side, $request->user()->id)], 201);
+    }
+
+    /** Changes the text of a message you wrote. The other side sees it marked as edited. */
+    public function edit(Request $request, int $id, int $message): JsonResponse
+    {
+        [$side, $company, $creator] = $this->actor($request);
+        $conversation = $this->mine($side, $company, $creator)->with(['company', 'influencer'])->findOrFail($id);
+        $found = $this->ownMessage($request, $conversation, $message);
+
+        if ($block = $this->sendBlock($request, $side, $conversation)) {
+            $this->deny($block['code'], $block['message'], $block['code'] === 'subscription_required' ? 403 : 422);
+        }
+        abort_if($found->deleted_at !== null, 422, 'A deleted message cannot be edited.');
+
+        $request->merge(['body' => trim((string) $request->input('body'))]);
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000']]);
+
+        if ($data['body'] !== $found->body) {
+            $found->forceFill(['body' => $data['body'], 'edited_at' => now(), 'changed_at' => now()])->save();
+        }
+
+        return response()->json(['data' => $this->messageArray($found->setRelation('sender', $request->user()), $side, $request->user()->id)]);
+    }
+
+    /** Removes the text of a message you wrote. The thread keeps a note that it was deleted. */
+    public function destroy(Request $request, int $id, int $message): JsonResponse
+    {
+        [$side, $company, $creator] = $this->actor($request);
+        $conversation = $this->mine($side, $company, $creator)->findOrFail($id);
+        $found = $this->ownMessage($request, $conversation, $message);
+
+        if ($found->deleted_at === null) {
+            $found->forceFill(['body' => '', 'deleted_at' => now(), 'changed_at' => now()])->save();
+        }
+
+        return response()->json(['data' => $this->messageArray($found->setRelation('sender', $request->user()), $side, $request->user()->id)]);
+    }
+
+    /** Only the person who wrote a message can change it, not a teammate. */
+    private function ownMessage(Request $request, Conversation $conversation, int $messageId): Message
+    {
+        $found = $conversation->messages()->findOrFail($messageId);
+        abort_unless($found->sender_user_id === $request->user()->id, 403, 'You can only change your own messages.');
+
+        return $found;
     }
 
     /** Tells the other side's browsers and phones, even when the site is closed. */
@@ -245,12 +293,16 @@ class ChatController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function messageArray(Message $m, string $side): array
+    private function messageArray(Message $m, string $side, ?int $userId = null): array
     {
         return [
             'id' => $m->id,
-            'body' => $m->body,
+            'body' => $m->deleted_at ? '' : $m->body,
             'from_me' => $m->sender_side === $side,
+            'mine' => $userId !== null && $m->sender_user_id === $userId,
+            'edited' => $m->edited_at !== null,
+            'deleted' => $m->deleted_at !== null,
+            'changed_at' => $m->changed_at?->toIso8601String(),
             'sender' => $m->sender?->name,
             'created_at' => $m->created_at->toIso8601String(),
         ];

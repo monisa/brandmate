@@ -268,4 +268,43 @@ class ChatTest extends TestCase
         $this->assertDatabaseCount('conversations', 0);
         $this->assertDatabaseCount('messages', 0);
     }
+
+    public function test_you_can_edit_and_delete_your_own_messages_but_not_anyone_elses(): void
+    {
+        $creator = $this->creator();
+        $company = $this->createCompany('Acme Foods');
+        $priya = $this->createMember($company, attributes: ['name' => 'Priya']);
+        $teammate = $this->createMember($company, attributes: ['name' => 'Sam']);
+        $id = $this->open($priya, $creator);
+
+        Sanctum::actingAs($priya);
+        $mine = $this->postJson("/api/v1/chat/conversations/{$id}/messages", ['body' => 'Helo'])->assertCreated()->assertJsonPath('data.mine', true)->json('data.id');
+
+        $this->patchJson("/api/v1/chat/conversations/{$id}/messages/{$mine}", ['body' => '  Hello  '])->assertOk()
+            ->assertJsonPath('data.body', 'Hello')->assertJsonPath('data.edited', true);
+
+        // A teammate shares the thread but cannot change what Priya wrote.
+        Sanctum::actingAs($teammate);
+        $this->patchJson("/api/v1/chat/conversations/{$id}/messages/{$mine}", ['body' => 'x'])->assertForbidden();
+        $this->deleteJson("/api/v1/chat/conversations/{$id}/messages/{$mine}")->assertForbidden();
+
+        // The creator sees the edit when polling, and cannot change the brand's message either.
+        Sanctum::actingAs($creator->user);
+        $this->patchJson("/api/v1/chat/conversations/{$id}/messages/{$mine}", ['body' => 'x'])->assertForbidden();
+        $since = now()->subMinute()->timestamp;
+        $poll = $this->getJson("/api/v1/chat/conversations/{$id}/messages?after={$mine}&since={$since}")->assertOk();
+        $this->assertSame(['Hello'], array_column($poll->json('data'), 'body'));
+        $this->assertTrue($poll->json('data.0.edited'));
+        $this->assertFalse($poll->json('data.0.mine'));
+
+        // Deleting keeps the place in the thread but removes the text everywhere.
+        Sanctum::actingAs($priya);
+        $this->deleteJson("/api/v1/chat/conversations/{$id}/messages/{$mine}")->assertOk()
+            ->assertJsonPath('data.deleted', true)->assertJsonPath('data.body', '');
+        $this->assertSame('', \App\Domain\Chat\Models\Message::findOrFail($mine)->body);
+        $this->patchJson("/api/v1/chat/conversations/{$id}/messages/{$mine}", ['body' => 'again'])->assertUnprocessable();
+
+        Sanctum::actingAs($creator->user);
+        $this->getJson("/api/v1/chat/conversations/{$id}/messages")->assertOk()->assertJsonPath('data.0.deleted', true)->assertJsonPath('data.0.body', '');
+    }
 }

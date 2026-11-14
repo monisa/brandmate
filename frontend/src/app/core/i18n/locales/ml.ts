@@ -665,6 +665,12 @@ const dictionary: Record<string, string> = {
   '{company} withdrew their request: {title}': '{company} അവരുടെ അഭ്യർത്ഥന പിൻവലിച്ചു: {title}',
   '{count} could not be deleted: super admins, your own account, or rows that no longer exist.': '{count} എണ്ണം ഇല്ലാതാക്കാനായില്ല: സൂപ്പർ അഡ്മിൻമാർ, നിങ്ങളുടെ സ്വന്തം അക്കൗണ്ട്, അല്ലെങ്കിൽ ഇല്ലാത്ത വരികൾ.',
   '{count} unread': '{count} വായിക്കാത്തവ',
+  'Edit message': 'സന്ദേശം എഡിറ്റ് ചെയ്യുക',
+  'This message was deleted': 'ഈ സന്ദേശം ഇല്ലാതാക്കി',
+  'edited': 'എഡിറ്റ് ചെയ്തു',
+  'Delete this message?': 'ഈ സന്ദേശം ഇല്ലാതാക്കണോ?',
+  'The message could not be changed.': 'സന്ദേശം മാറ്റാൻ കഴിഞ്ഞില്ല.',
+  'Save': 'സേവ് ചെയ്യുക',
 };
 
 export default dictionary;

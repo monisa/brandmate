@@ -84,6 +84,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('conversations', [ChatController::class, 'start'])->middleware('throttle:30,1');
         Route::get('conversations/{id}/messages', [ChatController::class, 'messages'])->whereNumber('id');
         Route::post('conversations/{id}/messages', [ChatController::class, 'send'])->middleware('throttle:60,1')->whereNumber('id');
+        Route::patch('conversations/{id}/messages/{message}', [ChatController::class, 'edit'])->middleware('throttle:60,1')->whereNumber(['id', 'message']);
+        Route::delete('conversations/{id}/messages/{message}', [ChatController::class, 'destroy'])->middleware('throttle:60,1')->whereNumber(['id', 'message']);
         Route::get('unread', [ChatController::class, 'unread']);
     });
 

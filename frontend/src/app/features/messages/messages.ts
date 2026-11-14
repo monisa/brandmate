@@ -4,6 +4,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { messageFrom } from '../../core/forms';
 import { ChatMessage, ChatMessages, Conversation } from '../../core/models';
+import { I18n } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { Api } from '../../core/services/api';
 import { ChatService } from '../../core/services/chat.service';
@@ -42,7 +43,7 @@ import { ChatService } from '../../core/services/chat.service';
                 <span class="avatar" aria-hidden="true">{{ c.counterpart.name.charAt(0).toUpperCase() }}</span>
                 <span class="chat__who">
                   <strong>{{ c.counterpart.name }}</strong>
-                  <span class="muted">{{ c.last_message?.from_me ? ('You: ' | t) : '' }}{{ c.last_message?.body ?? '' }}</span>
+                  <span class="muted">{{ c.last_message?.from_me ? ('You: ' | t) : '' }}{{ c.last_message && c.last_message.body === '' ? ('This message was deleted' | t) : (c.last_message?.body ?? '') }}</span>
                 </span>
                 @if (c.last_message_at) { <time class="chat__time">{{ c.last_message_at | date: 'shortTime' }}</time> }
                 @if (c.unread_count > 0) {
@@ -60,9 +61,32 @@ import { ChatService } from '../../core/services/chat.service';
         } @else {
           <div #scroller class="chat__messages" role="log" aria-live="polite">
             @for (m of messages(); track m.id) {
-              <div class="bubble" [class.bubble--me]="m.from_me">
-                <p>{{ m.body }}</p>
-                <time class="muted">{{ m.created_at | date: 'short' }}</time>
+              <div class="bubble" [class.bubble--me]="m.from_me" [class.bubble--deleted]="m.deleted">
+                @if (editingId() === m.id) {
+                  <textarea class="bubble__edit" rows="2" maxlength="2000" [formControl]="editBody"
+                            [attr.aria-label]="'Edit message' | t" (keydown.escape)="cancelEdit()"></textarea>
+                  <span class="bubble__actions">
+                    <button class="btn btn--quiet" type="button" (click)="saveEdit(m)" [disabled]="!editBody.value.trim()">{{ 'Save' | t }}</button>
+                    <button class="btn btn--quiet" type="button" (click)="cancelEdit()">{{ 'Cancel' | t }}</button>
+                  </span>
+                } @else {
+                  @if (m.deleted) {
+                    <p class="muted"><em>{{ 'This message was deleted' | t }}</em></p>
+                  } @else {
+                    <p>{{ m.body }}</p>
+                  }
+                  <time class="muted">
+                    {{ m.created_at | date: 'short' }}@if (m.edited && !m.deleted) { · {{ 'edited' | t }} }
+                  </time>
+                  @if (m.mine && !m.deleted) {
+                    <span class="bubble__actions">
+                      @if (canSend()) {
+                        <button class="btn btn--quiet" type="button" (click)="startEdit(m)">{{ 'Edit' | t }}</button>
+                      }
+                      <button class="btn btn--quiet" type="button" (click)="remove(m)">{{ 'Delete' | t }}</button>
+                    </span>
+                  }
+                }
               </div>
             }
           </div>
@@ -88,6 +112,7 @@ import { ChatService } from '../../core/services/chat.service';
 export class Messages implements OnInit, OnDestroy {
   private readonly api = inject(Api);
   protected readonly chat = inject(ChatService);
+  private readonly i18n = inject(I18n);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -100,6 +125,8 @@ export class Messages implements OnInit, OnDestroy {
   protected readonly error = signal('');
   protected readonly sending = signal(false);
   protected readonly body = new FormControl('', { nonNullable: true });
+  protected readonly editBody = new FormControl('', { nonNullable: true });
+  protected readonly editingId = signal<number | null>(null);
 
   constructor() {
     // Keeps the newest message in view.
@@ -175,16 +202,63 @@ export class Messages implements OnInit, OnDestroy {
       return;
     }
     const last = this.messages().at(-1)?.id ?? 0;
-    this.api.chatMessages(id, last).subscribe({
+    this.api.chatMessages(id, last, this.lastChange()).subscribe({
       next: (res) => {
         this.meta.set(res.meta);
         if (res.data.length > 0) {
-          this.messages.update((list) => [...list, ...res.data.filter((m) => !list.some((x) => x.id === m.id))]);
+          this.messages.update((list) => {
+            const next = list.map((x) => res.data.find((m) => m.id === x.id) ?? x);
+            return [...next, ...res.data.filter((m) => !list.some((x) => x.id === m.id))];
+          });
           this.chat.refresh();
           this.loadList();
         }
       },
       error: () => undefined,
+    });
+  }
+
+  /** Seconds of the newest edit or delete we hold, so the next check only returns what changed after it. */
+  private lastChange(): number {
+    return this.messages().reduce((max, m) => Math.max(max, m.changed_at ? Math.floor(Date.parse(m.changed_at) / 1000) : 0), 0);
+  }
+
+  protected startEdit(message: ChatMessage): void {
+    this.editingId.set(message.id);
+    this.editBody.setValue(message.body);
+  }
+
+  protected cancelEdit(): void {
+    this.editingId.set(null);
+  }
+
+  protected saveEdit(message: ChatMessage): void {
+    const id = this.activeId();
+    const text = this.editBody.value.trim();
+    if (id === null || !text) {
+      return;
+    }
+    this.api.editChatMessage(id, message.id, text).subscribe({
+      next: (updated) => {
+        this.messages.update((list) => list.map((m) => (m.id === updated.id ? updated : m)));
+        this.editingId.set(null);
+        this.loadList();
+      },
+      error: (err: unknown) => this.error.set(messageFrom(err, 'The message could not be changed.')),
+    });
+  }
+
+  protected remove(message: ChatMessage): void {
+    const id = this.activeId();
+    if (id === null || !window.confirm(this.i18n.t('Delete this message?'))) {
+      return;
+    }
+    this.api.deleteChatMessage(id, message.id).subscribe({
+      next: (updated) => {
+        this.messages.update((list) => list.map((m) => (m.id === updated.id ? updated : m)));
+        this.loadList();
+      },
+      error: (err: unknown) => this.error.set(messageFrom(err, 'The message could not be changed.')),
     });
   }
 

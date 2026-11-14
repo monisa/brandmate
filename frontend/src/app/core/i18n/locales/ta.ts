@@ -665,6 +665,12 @@ const dictionary: Record<string, string> = {
   '{company} withdrew their request: {title}': '{company} தங்கள் கோரிக்கையைத் திரும்பப் பெற்றது: {title}',
   '{count} could not be deleted: super admins, your own account, or rows that no longer exist.': '{count} ஐ நீக்க முடியவில்லை: சூப்பர் நிர்வாகிகள், உங்கள் சொந்தக் கணக்கு அல்லது இல்லாத வரிசைகள்.',
   '{count} unread': '{count} படிக்காதவை',
+  'Edit message': 'செய்தியைத் திருத்து',
+  'This message was deleted': 'இந்தச் செய்தி நீக்கப்பட்டது',
+  'edited': 'திருத்தப்பட்டது',
+  'Delete this message?': 'இந்தச் செய்தியை நீக்கவா?',
+  'The message could not be changed.': 'செய்தியை மாற்ற முடியவில்லை.',
+  'Save': 'சேமி',
 };
 
 export default dictionary;
