@@ -336,6 +336,18 @@ export class Api {
     return this.http.get<{ data: Conversation[]; unread_total: number }>(`${this.base}/chat/conversations`);
   }
 
+  pushKey(): Observable<{ public_key: string | null }> {
+    return this.http.get<{ public_key: string | null }>(`${this.base}/push/key`);
+  }
+
+  pushSubscribe(subscription: PushSubscriptionJSON): Observable<unknown> {
+    return this.http.post(`${this.base}/push/subscribe`, subscription);
+  }
+
+  pushUnsubscribe(endpoint: string): Observable<unknown> {
+    return this.http.post(`${this.base}/push/unsubscribe`, { endpoint });
+  }
+
   chatUnread(): Observable<{ unread_total: number }> {
     return this.http.get<{ unread_total: number }>(`${this.base}/chat/unread`);
   }

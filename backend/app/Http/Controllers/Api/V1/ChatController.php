@@ -7,6 +7,7 @@ use App\Domain\Chat\Models\Conversation;
 use App\Domain\Chat\Models\Message;
 use App\Domain\Companies\Models\Company;
 use App\Domain\Influencers\Models\Influencer;
+use App\Domain\Push\PushSender;
 use App\Domain\Subscriptions\Entitlements;
 use App\Http\Controllers\Controller;
 use Illuminate\Database\Eloquent\Builder;
@@ -124,7 +125,32 @@ class ChatController extends Controller
         // What you just wrote counts as read for your own side.
         $conversation->forceFill([Conversation::readColumn($side) => $message->id, 'last_message_at' => now()])->save();
 
+        $this->push($conversation, $side, $request->user()->id, $message->body);
+
         return response()->json(['data' => $this->messageArray($message->setRelation('sender', $request->user()), $side)], 201);
+    }
+
+    /** Tells the other side's browsers and phones, even when the site is closed. */
+    private function push(Conversation $conversation, string $side, int $senderId, string $body): void
+    {
+        if (! PushSender::configured()) {
+            return;
+        }
+
+        if ($side === Conversation::BRAND) {
+            $recipients = [$conversation->influencer->user_id];
+            $title = $conversation->company->name;
+        } else {
+            $recipients = $conversation->company->memberships()->pluck('user_id')->all();
+            $title = $conversation->influencer->name;
+        }
+
+        PushSender::notify(
+            collect($recipients)->filter()->reject(fn ($id) => $id === $senderId)->values(),
+            $title,
+            Str::limit($body, 120),
+            '/messages?c='.$conversation->id,
+        );
     }
 
     /**

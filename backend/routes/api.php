@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\RazorpayWebhookController;
 use App\Http\Controllers\Api\V1\RequestController;
 use App\Http\Controllers\Api\V1\ShortlistController;
 use App\Http\Controllers\Api\V1\SocialAuthController;
+use App\Http\Controllers\Api\V1\PushController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\TeamController;
 use Illuminate\Support\Facades\Route;
@@ -84,6 +85,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('conversations/{id}/messages', [ChatController::class, 'messages'])->whereNumber('id');
         Route::post('conversations/{id}/messages', [ChatController::class, 'send'])->middleware('throttle:60,1')->whereNumber('id');
         Route::get('unread', [ChatController::class, 'unread']);
+    });
+
+    // ---- Web Push: the browser registers here so new messages arrive even when the site is closed ----
+    Route::middleware('verified')->prefix('push')->group(function () {
+        Route::get('key', [PushController::class, 'key']);
+        Route::post('subscribe', [PushController::class, 'subscribe'])->middleware('throttle:20,1');
+        Route::post('unsubscribe', [PushController::class, 'unsubscribe'])->middleware('throttle:20,1');
     });
 
     // ---- In-app notifications (any signed-in, verified person) ----

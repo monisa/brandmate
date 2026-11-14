@@ -19,7 +19,7 @@ import { ChatService } from '../../core/services/chat.service';
 
     @if (chat.desktopPermission() === 'default') {
       <p class="alert alert--info">
-        {{ 'Get a desktop notification when a new message arrives.' | t }}
+        {{ 'Get a push notification on this device when a new message arrives, even when the site is closed.' | t }}
         <button class="btn" type="button" (click)="chat.enableDesktop()">{{ 'Turn on notifications' | t }}</button>
       </p>
     } @else if (chat.desktopPermission() === 'denied') {

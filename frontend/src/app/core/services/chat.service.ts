@@ -1,6 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
+import { SwPush } from '@angular/service-worker';
+import { take } from 'rxjs';
 import { Router } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { Api } from './api';
@@ -12,6 +14,9 @@ export class ChatService {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly title = inject(Title);
+  private readonly swPush = inject(SwPush);
+  private flashTimer: ReturnType<typeof setInterval> | null = null;
+  private flashing = false;
   private timer: ReturnType<typeof setInterval> | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private baseTitle = '';
@@ -28,7 +33,12 @@ export class ChatService {
     if (this.timer !== null) {
       return;
     }
-    this.baseTitle = this.title.getTitle().replace(/^(d+) /, '');
+    this.baseTitle = this.title.getTitle().replace(/^\(\d+\) /, '');
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.onVisible);
+      window.addEventListener('focus', this.onVisible);
+    }
+    this.registerPush(false);
     this.refresh();
     this.timer = setInterval(() => this.refresh(), 20_000);
   }
@@ -42,6 +52,67 @@ export class ChatService {
     this.seen = -1;
     this.dismiss();
     this.showTitle(0);
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.onVisible);
+      window.removeEventListener('focus', this.onVisible);
+    }
+    this.forgetPush();
+  }
+
+  private readonly onVisible = (): void => {
+    if (!document.hidden) {
+      this.stopFlash();
+      this.showTitle(this.unread());
+    }
+  };
+
+  /** Registers this browser for push messages, which arrive even when the site is closed. */
+  private registerPush(askFirst: boolean): void {
+    if (!this.swPush.isEnabled || typeof Notification === 'undefined' || (!askFirst && Notification.permission !== 'granted')) {
+      return;
+    }
+    this.api.pushKey().subscribe({
+      next: ({ public_key }) => {
+        if (!public_key) {
+          return;
+        }
+        this.swPush
+          .requestSubscription({ serverPublicKey: public_key })
+          .then((sub) => this.api.pushSubscribe(sub.toJSON()).subscribe({ error: () => undefined }))
+          .catch(() => undefined);
+      },
+      error: () => undefined,
+    });
+  }
+
+  /** On sign-out this browser must stop receiving that person's messages. */
+  private forgetPush(): void {
+    if (!this.swPush.isEnabled) {
+      return;
+    }
+    this.swPush.subscription.pipe(take(1)).subscribe((sub) => {
+      if (sub) {
+        this.api.pushUnsubscribe(sub.endpoint).subscribe({ error: () => undefined });
+      }
+    });
+  }
+
+  private startFlash(count: number): void {
+    if (this.flashTimer !== null) {
+      return;
+    }
+    this.flashing = true;
+    this.flashTimer = setInterval(() => {
+      this.title.setTitle(this.flashing ? `💬 ${count > 1 ? count + ' new messages' : 'New message'}` : `(${count}) ${this.baseTitle}`);
+      this.flashing = !this.flashing;
+    }, 1_000);
+  }
+
+  private stopFlash(): void {
+    if (this.flashTimer !== null) {
+      clearInterval(this.flashTimer);
+      this.flashTimer = null;
+    }
   }
 
   /** 'default' means the browser has not been asked yet; 'unsupported' where there is no Notification API. */
@@ -54,7 +125,12 @@ export class ChatService {
     if (typeof Notification === 'undefined') {
       return;
     }
-    void Notification.requestPermission().then((p) => this.desktopPermission.set(p));
+    void Notification.requestPermission().then((p) => {
+      this.desktopPermission.set(p);
+      if (p === 'granted') {
+        this.registerPush(true);
+      }
+    });
   }
 
   private desktopNotify(note: { id: number; name: string; body: string }): void {
@@ -82,7 +158,12 @@ export class ChatService {
   }
 
   private showTitle(count: number): void {
+    this.stopFlash();
     this.title.setTitle(count > 0 ? `(${count}) ${this.baseTitle}` : this.baseTitle);
+    // A flashing tab title draws the eye while the tab is in the background, like a mail app.
+    if (count > 0 && typeof document !== 'undefined' && document.hidden) {
+      this.startFlash(count);
+    }
   }
 
   refresh(): void {
