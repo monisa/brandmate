@@ -17,6 +17,15 @@ import { ChatService } from '../../core/services/chat.service';
       <h1>{{ 'Messages' | t }}</h1>
     </header>
 
+    @if (chat.desktopPermission() === 'default') {
+      <p class="alert alert--info">
+        {{ 'Get a desktop notification when a new message arrives.' | t }}
+        <button class="btn" type="button" (click)="chat.enableDesktop()">{{ 'Turn on notifications' | t }}</button>
+      </p>
+    } @else if (chat.desktopPermission() === 'denied') {
+      <p class="muted">{{ 'Desktop notifications are blocked. Allow them in the browser’s site settings to get them.' | t }}</p>
+    }
+
     @if (error()) {
       <p class="alert alert--error" role="alert">{{ error() | t }}</p>
     }
@@ -78,7 +87,7 @@ import { ChatService } from '../../core/services/chat.service';
 })
 export class Messages implements OnInit, OnDestroy {
   private readonly api = inject(Api);
-  private readonly chat = inject(ChatService);
+  protected readonly chat = inject(ChatService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private timer: ReturnType<typeof setInterval> | null = null;

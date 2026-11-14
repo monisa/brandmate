@@ -44,6 +44,35 @@ export class ChatService {
     this.showTitle(0);
   }
 
+  /** 'default' means the browser has not been asked yet; 'unsupported' where there is no Notification API. */
+  readonly desktopPermission = signal<NotificationPermission | 'unsupported'>(
+    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
+  );
+
+  /** Must be called from a click: browsers only show the permission prompt after a user gesture. */
+  enableDesktop(): void {
+    if (typeof Notification === 'undefined') {
+      return;
+    }
+    void Notification.requestPermission().then((p) => this.desktopPermission.set(p));
+  }
+
+  private desktopNotify(note: { id: number; name: string; body: string }): void {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+      return;
+    }
+    try {
+      const popup = new Notification(note.name, { body: note.body, icon: '/icon-192.png', tag: 'brandmate-chat' });
+      popup.onclick = () => {
+        window.focus();
+        void this.router.navigate(['/messages'], { queryParams: { c: note.id } });
+        popup.close();
+      };
+    } catch {
+      // Some mobile browsers only allow notifications through a service worker; the in-app pop-up still works there.
+    }
+  }
+
   dismiss(): void {
     if (this.toastTimer !== null) {
       clearTimeout(this.toastTimer);
@@ -66,13 +95,18 @@ export class ChatService {
         this.unread.set(res.unread_total);
         this.showTitle(res.unread_total);
         // A pop-up only when something new arrived since the last check, and not on the first load or inside the chat itself.
-        if (this.seen >= 0 && res.unread_total > this.seen && !this.router.url.startsWith('/messages')) {
+        if (this.seen >= 0 && res.unread_total > this.seen) {
           const latest = res.data
             .filter((c) => c.unread_count > 0)
             .sort((a, b) => (b.last_message_at ?? '').localeCompare(a.last_message_at ?? ''))[0];
           if (latest) {
-            this.toast.set({ id: latest.id, name: latest.counterpart.name, body: latest.last_message?.body ?? '' });
-            this.toastTimer = setTimeout(() => this.toast.set(null), 8_000);
+            const note = { id: latest.id, name: latest.counterpart.name, body: latest.last_message?.body ?? '' };
+            if (typeof document !== 'undefined' && document.hidden) {
+              this.desktopNotify(note);
+            } else if (!this.router.url.startsWith('/messages')) {
+              this.toast.set(note);
+              this.toastTimer = setTimeout(() => this.toast.set(null), 8_000);
+            }
           }
         }
         this.seen = res.unread_total;
