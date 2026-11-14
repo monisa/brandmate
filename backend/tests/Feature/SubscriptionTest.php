@@ -110,6 +110,7 @@ class SubscriptionTest extends TestCase
         $card = $this->getJson('/api/v1/influencers')->assertOk()->assertJsonCount(1, 'data')->json('data.0');
         $this->assertTrue($card['locked']);
         $this->assertSame('XXXxx', $card['username']);
+        $this->assertSame('XXXxx', $card['bio']);
         $this->assertNull($card['profile_url']);
         $this->assertSame(['email' => 'XXXxx', 'phone' => 'XXXxx'], $card['contact']);
         $this->assertSame('Riya Sen', $card['name']); // the name stays visible

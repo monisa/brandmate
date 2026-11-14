@@ -33,7 +33,7 @@ class InfluencerResource extends JsonResource
                 'phone' => Entitlements::reveal($creator->user?->phone, $unlocked),
             ],
             'avatar_url' => $this->avatar_url,
-            'bio' => $creator->bio,
+            'bio' => Entitlements::reveal($creator->bio, $unlocked),
             'category' => $creator->category,
             'country' => $creator->country,
             'state' => $creator->state,

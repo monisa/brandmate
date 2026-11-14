@@ -287,7 +287,7 @@ const EXTRA_FILTERS = ['country', 'followers_min', 'followers_max', 'engagement_
                   }
                 </p>
                 @if (influencer.bio) {
-                  <p class="creator-card__bio">{{ influencer.bio }}</p>
+                  <p class="creator-card__bio" [class.is-masked]="influencer.locked">{{ influencer.bio }}</p>
                 }
                 @if (influencer.data_source === 'self_reported') {
                   <span class="badge badge--warn" [title]="'Numbers entered by the creator, not verified' | t">{{ 'Self-reported' | t }}</span>
