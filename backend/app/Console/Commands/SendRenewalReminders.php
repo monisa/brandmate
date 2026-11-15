@@ -83,8 +83,9 @@ class SendRenewalReminders extends Command
             }
         }
 
-        // A line per run in storage/logs, so a quiet day still shows that the cron job fired.
-        Log::info("subscriptions:remind ran", $counts + ["dry_run" => $dry]);
+        // A line per run in storage/logs/reminders.log (the app log keeps only warnings), so a quiet day still shows that the cron job fired.
+        Log::build(["driver" => "single", "path" => storage_path("logs/reminders.log"), "level" => "info"])
+            ->info("subscriptions:remind ran", $counts + ["dry_run" => $dry]);
 
         $this->info(($dry ? 'Dry run: ' : '')."ending soon {$counts['ending']}, ended {$counts['ended']}, failed {$counts['failed']}");
 
