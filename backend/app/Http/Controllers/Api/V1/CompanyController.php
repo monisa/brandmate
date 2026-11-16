@@ -20,7 +20,7 @@ class CompanyController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:160'],
-            'website' => ['nullable', 'url', 'max:255'],
+            'website' => ['nullable', 'url:http,https', 'max:255'],
             'country' => ['nullable', 'string', 'size:2'],
             'timezone' => ['required', 'timezone'],
             // Contact details that creators see once they subscribe.

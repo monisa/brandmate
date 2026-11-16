@@ -99,8 +99,11 @@ class SocialAuthController extends Controller
         }
 
         if (! $user->email_verified_at) {
-            // The provider has confirmed the address, which is what verification proves.
-            $user->forceFill(['email_verified_at' => now()])->save();
+            // The provider has confirmed the address, which is what verification proves. Someone else may
+            // have registered this address first and chosen the password, so that password is discarded and
+            // every session closed: the owner signs in with the provider, or sets their own through "forgot password".
+            $user->forceFill(['email_verified_at' => now(), 'password' => Str::random(40), 'remember_token' => Str::random(60)])->save();
+            $user->tokens()->delete();
         }
 
         $code = Str::random(48);

@@ -46,7 +46,8 @@ class SocialAuthTest extends TestCase
 
     public function test_an_existing_user_signs_in_with_google(): void
     {
-        $user = User::factory()->create(['email' => 'asha@example.com', 'email_verified_at' => null]);
+        $user = User::factory()->create(['email' => 'asha@example.com', 'email_verified_at' => null, 'password' => 'Squatter123']);
+        $user->createToken('squatter');
         $state = $this->startGoogle();
         $this->fakeGoogle('Asha@Example.com');
 
@@ -58,6 +59,10 @@ class SocialAuthTest extends TestCase
         $this->postJson('/api/v1/auth/oauth/exchange', ['code' => $query['code']])
             ->assertOk()->assertJsonPath('data.user.email', 'asha@example.com')->assertJsonStructure(['data' => ['token']]);
         $this->assertNotNull($user->fresh()->email_verified_at);
+
+        // Whoever registered the address first loses their password and their sessions.
+        $this->assertFalse(\Illuminate\Support\Facades\Hash::check('Squatter123', $user->fresh()->password));
+        $this->assertSame(1, $user->tokens()->count()); // only the new sign-in
 
         // The code works once only.
         $this->postJson('/api/v1/auth/oauth/exchange', ['code' => $query['code']])->assertUnprocessable();

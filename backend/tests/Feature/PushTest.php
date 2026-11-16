@@ -13,7 +13,7 @@ class PushTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const ENDPOINT = 'https://push.example.test/send/abc123';
+    private const ENDPOINT = 'https://fcm.googleapis.com/fcm/send/abc123';
 
     private function payload(): array
     {
@@ -67,6 +67,28 @@ class PushTest extends TestCase
         Sanctum::actingAs(User::factory()->create());
 
         $this->postJson('/api/v1/push/subscribe', ['endpoint' => self::ENDPOINT])->assertUnprocessable();
+    }
+
+    public function test_only_real_browser_push_services_are_accepted(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        foreach ([
+            'http://fcm.googleapis.com/fcm/send/abc',                 // not https
+            'https://169.254.169.254/latest/meta-data',               // cloud metadata service
+            'https://localhost/send',
+            'https://fcm.googleapis.com.evil.test/send',              // look-alike host
+            'https://evil.test/x.notify.windows.com',
+            'https://user:pw@fcm.googleapis.com/fcm/send/abc',
+            'https://fcm.googleapis.com:8443/fcm/send/abc',
+        ] as $endpoint) {
+            $this->postJson('/api/v1/push/subscribe', ['endpoint' => $endpoint, 'keys' => ['p256dh' => 'k', 'auth' => 'a']])
+                ->assertUnprocessable();
+        }
+
+        foreach (['https://updates.push.services.mozilla.com/wpush/v2/abc', 'https://db5p.notify.windows.com/w/?token=abc', 'https://web.push.apple.com/abc'] as $endpoint) {
+            $this->postJson('/api/v1/push/subscribe', ['endpoint' => $endpoint, 'keys' => ['p256dh' => 'k', 'auth' => 'a']])->assertCreated();
+        }
     }
 
     public function test_sending_does_nothing_and_does_not_fail_without_keys_or_subscriptions(): void

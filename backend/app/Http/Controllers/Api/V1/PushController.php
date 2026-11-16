@@ -19,7 +19,7 @@ class PushController extends Controller
     public function subscribe(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'endpoint' => ['required', 'url', 'max:2000'],
+            'endpoint' => ['required', 'max:2000', $this->pushServiceUrl()],
             'keys.p256dh' => ['required', 'string', 'max:255'],
             'keys.auth' => ['required', 'string', 'max:255'],
         ]);
@@ -39,9 +39,34 @@ class PushController extends Controller
         return response()->json(['status' => 'subscribed'], 201);
     }
 
+    /**
+     * The server posts to whatever address is registered here, so only the browsers' own push
+     * services are accepted. Anything else (an internal address, a link-local metadata service)
+     * would let a signed-in person make this server send requests wherever they like.
+     */
+    private function pushServiceUrl(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            $parts = is_string($value) ? parse_url($value) : false;
+            $host = strtolower((string) ($parts['host'] ?? ''));
+            $allowed = ['fcm.googleapis.com', 'updates.push.services.mozilla.com', 'web.push.apple.com'];
+            $suffixes = ['.push.services.mozilla.com', '.notify.windows.com', '.push.apple.com'];
+
+            $ok = $parts !== false
+                && ($parts['scheme'] ?? '') === 'https'
+                && ! isset($parts['user'], $parts['pass'])
+                && (! isset($parts['port']) || $parts['port'] === 443)
+                && ($host !== '' && (in_array($host, $allowed, true) || collect($suffixes)->contains(fn ($s) => str_ends_with($host, $s))));
+
+            if (! $ok) {
+                $fail('This is not a browser push service address.');
+            }
+        };
+    }
+
     public function unsubscribe(Request $request): JsonResponse
     {
-        $data = $request->validate(['endpoint' => ['required', 'url', 'max:2000']]);
+        $data = $request->validate(['endpoint' => ['required', 'string', 'max:2000']]);
 
         PushSubscription::where('user_id', $request->user()->id)->where('endpoint_hash', hash('sha256', $data['endpoint']))->delete();
 

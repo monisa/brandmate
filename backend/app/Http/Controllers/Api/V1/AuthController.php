@@ -103,7 +103,10 @@ class AuthController extends Controller
 
         $user = User::where('email', strtolower(trim($credentials['email'])))->first();
 
-        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+        // An unknown e-mail costs the same time as a wrong password, so response time does not reveal which accounts exist.
+        $passwordMatches = $user ? Hash::check($credentials['password'], $user->password) : (Hash::make($credentials['password']) === '');
+
+        if (! $passwordMatches) {
             if ($user) {
                 $this->audit->log('auth.login_failed', $user, actor: $user);
             }
