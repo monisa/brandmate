@@ -27,6 +27,9 @@ return [
     // Fictional influencers for development. Turn off in production.
     'seed_sample_influencers' => (bool) env('SEED_SAMPLE_INFLUENCERS', true),
 
+    // Where new support tickets are e-mailed. Leave empty to e-mail every platform admin instead.
+    'support_email' => env('SUPPORT_EMAIL'),
+
     // Optional platform owner created by `php artisan db:seed`.
     'super_admin' => [
         'name' => env('SUPER_ADMIN_NAME', 'Super Admin'),

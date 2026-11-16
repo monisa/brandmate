@@ -6,11 +6,12 @@ import { ChatService } from '../core/services/chat.service';
 import { LanguageSwitcher } from '../shared/components/language-switcher';
 import { TPipe } from '../core/i18n/t.pipe';
 import { Logo } from '../shared/components/logo';
+import { HelpPanel } from '../shared/components/help-panel';
 
 /** Sidebar and frame for every signed-in page. */
 @Component({
   selector: 'app-shell',
-  imports: [TPipe, LanguageSwitcher, RouterOutlet, RouterLink, RouterLinkActive, Logo],
+  imports: [TPipe, LanguageSwitcher, RouterOutlet, RouterLink, RouterLinkActive, Logo, HelpPanel],
   template: `
     <a class="skip-link" href="#main">{{ 'Skip to content' | t }}</a>
     <div class="shell">
@@ -99,9 +100,18 @@ import { Logo } from '../shared/components/logo';
             {{ 'Settings' | t }}
           </a>
           @if (user()?.is_super_admin) {
-            <a routerLink="/admin" routerLinkActive="is-active">
+            <a routerLink="/admin" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z" /></svg>
               {{ 'Platform admin' | t }}
+            </a>
+            <a routerLink="/admin/support" routerLinkActive="is-active">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z" /></svg>
+              {{ 'Support tickets' | t }}
+            </a>
+          } @else {
+            <a routerLink="/support" routerLinkActive="is-active">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01" /></svg>
+              {{ 'Support' | t }}
             </a>
           }
         </nav>
@@ -126,6 +136,7 @@ import { Logo } from '../shared/components/logo';
       <main class="shell__main" id="main" tabindex="-1">
         <router-outlet />
       </main>
+      @if (!user()?.is_super_admin) { <app-help /> }
     </div>
   `,
 })

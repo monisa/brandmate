@@ -435,3 +435,25 @@ export interface AccessRow {
   deactivated: boolean;
   subscription: { active: boolean; status: string; until: string | null };
 }
+
+// ---- Support tickets ----
+export type TicketStatus = 'open' | 'answered' | 'closed';
+
+export interface SupportReply {
+  id: number;
+  staff: boolean;
+  author: string;
+  body: string;
+  created_at: string;
+}
+
+export interface SupportTicket {
+  id: number;
+  subject: string;
+  category: string | null;
+  status: TicketStatus;
+  created_at: string;
+  last_reply_at: string | null;
+  user: { id: number; name: string; email: string } | null;
+  replies: SupportReply[] | null;
+}

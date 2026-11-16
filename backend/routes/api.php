@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\V1\Admin\AccessController;
 use App\Http\Controllers\Api\V1\Admin\AdminController;
+use App\Http\Controllers\Api\V1\Admin\SupportController as AdminSupportController;
+use App\Http\Controllers\Api\V1\SupportTicketController;
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandDirectoryController;
@@ -94,6 +96,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('key', [PushController::class, 'key']);
         Route::post('subscribe', [PushController::class, 'subscribe'])->middleware('throttle:20,1');
         Route::post('unsubscribe', [PushController::class, 'unsubscribe'])->middleware('throttle:20,1');
+    });
+
+    // ---- Support tickets: for questions the help page did not settle ----
+    Route::middleware('verified')->prefix('support/tickets')->group(function () {
+        Route::get('/', [SupportTicketController::class, 'index']);
+        Route::post('/', [SupportTicketController::class, 'store'])->middleware('throttle:5,60');
+        Route::get('{id}', [SupportTicketController::class, 'show'])->whereNumber('id');
+        Route::post('{id}/replies', [SupportTicketController::class, 'reply'])->middleware('throttle:20,10')->whereNumber('id');
     });
 
     // ---- In-app notifications (any signed-in, verified person) ----
@@ -194,5 +204,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('access/{id}/active', [AccessController::class, 'setActive'])->whereNumber('id');
         Route::post('access/{id}/subscription', [AccessController::class, 'updateSubscription'])->whereNumber('id');
         Route::get('audit-logs', [AdminController::class, 'auditLogs']);
+        Route::get('support/tickets', [AdminSupportController::class, 'index']);
+        Route::get('support/tickets/{id}', [AdminSupportController::class, 'show'])->whereNumber('id');
+        Route::post('support/tickets/{id}/replies', [AdminSupportController::class, 'reply'])->whereNumber('id');
+        Route::patch('support/tickets/{id}', [AdminSupportController::class, 'setStatus'])->whereNumber('id');
     });
 });

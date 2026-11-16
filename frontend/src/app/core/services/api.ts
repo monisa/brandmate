@@ -6,7 +6,7 @@ import {
   AccessRow, AdminCreator, AdminOverview, AppNotification, ApprovalStatus, BrandCard, BrandFilterOptions, BrandRequest, BulkDeleteResult, ChatMessage, ChatMessages,
   CheckoutDetails, Company, Conversation, CreatorDashboard, CreatorRequest, SubscriptionSummary, DeviceSession, FilterOptions, Influencer,
   InfluencerQuery, Invitation, InvitationPreview, Item, RequestInput, RequestStatus,
-  CreatorAccountInput, CreatorPackageInput, CreatorProfile, Member, Paginated, Role, Shortlist, User,
+  CreatorAccountInput, CreatorPackageInput, CreatorProfile, Member, Paginated, Role, Shortlist, SupportTicket, User,
 } from '../models';
 
 /** Typed access to the /api/v1 endpoints that exist in Phase 1. */
@@ -346,6 +346,39 @@ export class Api {
 
   pushUnsubscribe(endpoint: string): Observable<unknown> {
     return this.http.post(`${this.base}/push/unsubscribe`, { endpoint });
+  }
+
+  // ---- Support tickets ----
+  supportTickets(): Observable<SupportTicket[]> {
+    return this.http.get<{ data: SupportTicket[] }>(`${this.base}/support/tickets`).pipe(map((r) => r.data));
+  }
+
+  supportTicket(id: number): Observable<SupportTicket> {
+    return this.http.get<Item<SupportTicket>>(`${this.base}/support/tickets/${id}`).pipe(map((r) => r.data));
+  }
+
+  createTicket(body: { subject: string; message: string; category?: string | null }): Observable<SupportTicket> {
+    return this.http.post<Item<SupportTicket>>(`${this.base}/support/tickets`, body).pipe(map((r) => r.data));
+  }
+
+  replyToTicket(id: number, body: string): Observable<SupportTicket> {
+    return this.http.post<Item<SupportTicket>>(`${this.base}/support/tickets/${id}/replies`, { body }).pipe(map((r) => r.data));
+  }
+
+  adminTickets(status = ''): Observable<{ data: SupportTicket[]; open_count: number }> {
+    return this.http.get<{ data: SupportTicket[]; open_count: number }>(`${this.base}/admin/support/tickets`, { params: status ? { status } : {} });
+  }
+
+  adminTicket(id: number): Observable<SupportTicket> {
+    return this.http.get<Item<SupportTicket>>(`${this.base}/admin/support/tickets/${id}`).pipe(map((r) => r.data));
+  }
+
+  adminReplyToTicket(id: number, body: string): Observable<SupportTicket> {
+    return this.http.post<Item<SupportTicket>>(`${this.base}/admin/support/tickets/${id}/replies`, { body }).pipe(map((r) => r.data));
+  }
+
+  adminSetTicketStatus(id: number, status: 'open' | 'closed'): Observable<SupportTicket> {
+    return this.http.patch<Item<SupportTicket>>(`${this.base}/admin/support/tickets/${id}`, { status }).pipe(map((r) => r.data));
   }
 
   chatUnread(): Observable<{ unread_total: number }> {
