@@ -16,12 +16,9 @@
   --danger-bg: #fbe9e7;
   --info-bg: #e8ecf8;
 
-  // The Latin faces have no Indic glyphs, so Hindi, Tamil and Malayalam fall
-  // through to the Noto faces (or the system's own, such as Nirmala UI).
-  --font-indic: 'Noto Sans Devanagari', 'Noto Sans Tamil', 'Noto Sans Malayalam', 'Nirmala UI';
-  // Poppins first; Segoe UI is the fallback while it loads or if Google Fonts is blocked.
-  --font-body: 'Poppins', 'Segoe UI', var(--font-indic), system-ui, -apple-system, sans-serif;
-  --font-display: 'Poppins', 'Segoe UI', var(--font-indic), system-ui, sans-serif;
+  // The device's own sans-serif everywhere. Hindi, Tamil and Malayalam use the system's sans-serif for those scripts.
+  --font-body: sans-serif;
+  --font-display: sans-serif;
 
   --radius: 10px;
   --radius-lg: 18px;
