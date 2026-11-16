@@ -20,8 +20,8 @@ class SupportUpdate extends Mailable
         public readonly string $direction,
         public readonly int $ticketId,
         public readonly string $ticketSubject,
-        public readonly string $from,
-        public readonly string $body,
+        public readonly string $sender,
+        public readonly string $text,
         public readonly string $url,
     ) {}
 
