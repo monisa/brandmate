@@ -40,6 +40,14 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // WhatsApp Cloud API (Meta). Leave blank to switch WhatsApp messages off.
+    'whatsapp' => [
+        'token' => env('WHATSAPP_TOKEN'),
+        'phone_id' => env('WHATSAPP_PHONE_ID'),
+        'template' => env('WHATSAPP_TEMPLATE'),
+        'language' => env('WHATSAPP_LANGUAGE', 'en'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
