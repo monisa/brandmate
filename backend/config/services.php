@@ -40,6 +40,10 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // Creator numbers read from the platforms' own APIs (see Domain/Influencers/ProfileStats). Blank = off.
+    'youtube' => ['key' => env('YOUTUBE_API_KEY')],
+    'instagram' => ['user_id' => env('IG_BUSINESS_ID'), 'token' => env('IG_ACCESS_TOKEN')],
+
     // WhatsApp Cloud API (Meta). Leave blank to switch WhatsApp messages off.
     'whatsapp' => [
         'token' => env('WHATSAPP_TOKEN'),

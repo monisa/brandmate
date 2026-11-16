@@ -12,3 +12,4 @@ Artisan::command('inspire', function () {
 // Otherwise run `php artisan subscriptions:remind` from a daily cron job: it is safe to repeat.
 Schedule::command('subscriptions:remind')->dailyAt('09:00')->withoutOverlapping();
 Schedule::command('subscriptions:nudge')->dailyAt('09:05')->withoutOverlapping();
+Schedule::command('profiles:refresh')->dailyAt('03:00')->withoutOverlapping();

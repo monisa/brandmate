@@ -6,6 +6,7 @@ use App\Domain\Audit\AuditLogger;
 use App\Domain\Companies\CompanyScope;
 use App\Domain\Influencers\Models\Influencer;
 use App\Domain\Influencers\Models\SocialProfile;
+use App\Domain\Influencers\ProfileStats;
 use App\Domain\Requests\Models\CollaborationRequest;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -88,14 +89,15 @@ class CreatorController extends Controller
         $creator = $this->creator($request);
         $data = $this->validateAccount($request);
 
-        $creator->profiles()->create($data + [
+        $profile = $creator->profiles()->create($data + [
             // Numbers typed in by the creator. They stay marked as unverified
-            // until the account is connected through the platform's own API.
+            // until the platform's own API has been read (just below, when it is set up).
             'data_source' => 'self_reported',
             'provider' => 'Entered by the creator',
             'sync_status' => 'unverified',
             'last_synced_at' => now(),
         ]);
+        ProfileStats::refresh($profile);
 
         return $this->respond($creator, 201);
     }
@@ -106,6 +108,7 @@ class CreatorController extends Controller
         $account = $creator->profiles()->findOrFail($id);
 
         $account->update($this->validateAccount($request, $account) + ['last_synced_at' => now()]);
+        ProfileStats::refresh($account);
 
         return $this->respond($creator);
     }
