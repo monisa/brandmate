@@ -250,7 +250,7 @@ td > .badge:first-child { margin-left: 0; }
   background: #ff8fb4; color: var(--ink);
   display: grid; place-items: center; font-weight: 600; font-size: 0.875rem;
 }
-.shell__main { margin-left: var(--sidebar); padding: 1rem; max-width: calc(var(--sidebar) + 68rem); }
+.shell__main { margin-left: var(--sidebar); padding: 1rem 1rem 3rem; max-width: calc(var(--sidebar) + 68rem); }
 .shell__main:focus { outline: none; }
 
 // ---------- Page content ----------
