@@ -23,7 +23,7 @@ class SubscribeNudgeTest extends TestCase
 
     private function creator(array $attributes = []): User
     {
-        return User::factory()->create(['account_type' => 'creator', 'created_at' => now()->subDays(2)] + $attributes);
+        return User::factory()->create(array_merge(['account_type' => 'creator', 'created_at' => now()->subDays(2)], $attributes));
     }
 
     public function test_someone_who_signed_up_and_never_paid_is_told_once(): void
