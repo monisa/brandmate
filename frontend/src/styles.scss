@@ -250,7 +250,7 @@ td > .badge:first-child { margin-left: 0; }
   background: #ff8fb4; color: var(--ink);
   display: grid; place-items: center; font-weight: 600; font-size: 0.875rem;
 }
-.shell__main { margin-left: var(--sidebar); padding: 2.5rem clamp(1.25rem, 4vw, 3rem) 4rem; max-width: calc(var(--sidebar) + 68rem); }
+.shell__main { margin-left: var(--sidebar); padding: 1rem; max-width: calc(var(--sidebar) + 68rem); }
 .shell__main:focus { outline: none; }
 
 // ---------- Page content ----------
@@ -324,7 +324,7 @@ td.actions .btn { min-height: 2.125rem; padding: 0.375rem 0.75rem; }
   .shell__side.is-open { display: flex; }
   .shell__brand, .shell__company { display: none; }
   .shell__side nav { margin-top: 0; }
-  .shell__main { margin-left: 0; padding-top: 1.5rem; }
+  .shell__main { margin-left: 0; }
 
   .inline-form { grid-template-columns: 1fr; }
   .inline-form .btn { margin-top: 0; }
